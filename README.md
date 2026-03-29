@@ -153,6 +153,7 @@ ChurchBell/
 - **[docs/INSTALLATION.md](./docs/INSTALLATION.md)** - Complete installation and deployment guide
 - **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - System design and architecture
 - **[docs/API.md](./docs/API.md)** - REST API reference
+- **[docs/AUDIO.md](./docs/AUDIO.md)** - Audio file setup and sources
 - **[QUICKSTART.md](./QUICKSTART.md)** - 5-minute setup guide
 - **[PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)** - Project status and deliverables
 
