@@ -10,19 +10,19 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
-        
+
         header {
             background: white;
             padding: 30px;
@@ -30,27 +30,27 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 30px;
         }
-        
+
         h1 {
             color: #333;
             margin-bottom: 10px;
             font-size: 2em;
         }
-        
+
         .status-bar {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
             margin-top: 20px;
         }
-        
+
         .status-item {
             background: #f5f5f5;
             padding: 15px;
             border-radius: 8px;
             border-left: 4px solid #667eea;
         }
-        
+
         .status-label {
             color: #666;
             font-size: 0.9em;
@@ -58,26 +58,26 @@
             text-transform: uppercase;
             margin-bottom: 5px;
         }
-        
+
         .status-value {
             color: #333;
             font-size: 1.3em;
             font-weight: 500;
         }
-        
+
         .content {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
-        
+
         .card {
             background: white;
             padding: 25px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        
+
         .card h2 {
             color: #333;
             margin-bottom: 20px;
@@ -85,11 +85,11 @@
             border-bottom: 2px solid #667eea;
             padding-bottom: 10px;
         }
-        
+
         .event-list {
             list-style: none;
         }
-        
+
         .event-item {
             background: #f9f9f9;
             padding: 15px;
@@ -97,18 +97,52 @@
             border-radius: 8px;
             border-left: 4px solid #667eea;
         }
-        
+
         .event-name {
             font-weight: 600;
             color: #333;
             margin-bottom: 5px;
         }
-        
+
         .event-details {
             font-size: 0.9em;
             color: #666;
+            margin-bottom: 8px;
         }
-        
+
+        .event-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            padding: 5px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.82em;
+            transition: background 0.2s;
+        }
+
+        .btn-sm-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-sm-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-sm-secondary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-sm-secondary:hover {
+            background: #764ba2;
+        }
+
         .button {
             background: #667eea;
             color: white;
@@ -121,33 +155,38 @@
             width: 100%;
             transition: background 0.3s;
         }
-        
-        .button:hover {
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .button:hover:not(:disabled) {
             background: #764ba2;
         }
-        
+
         .button-secondary {
             background: #f5f5f5;
             color: #333;
             border: 1px solid #ddd;
         }
-        
-        .button-secondary:hover {
+
+        .button-secondary:hover:not(:disabled) {
             background: #e8e8e8;
         }
-        
+
         .button-group {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
         }
-        
+
         .time-display {
             font-size: 1.1em;
             color: #667eea;
             font-weight: 600;
         }
-        
+
         .quiet-hours {
             background: #fff3cd;
             padding: 12px;
@@ -156,144 +195,663 @@
             margin-top: 15px;
             font-size: 0.9em;
         }
-        
-        .quiet-hours-enabled {
-            color: #856404;
-        }
-        
-        .quiet-hours-disabled {
-            color: #666;
-        }
-        
+
+        .quiet-hours-enabled { color: #856404; }
+        .quiet-hours-disabled { color: #666; }
+
         .footer {
             text-align: center;
             color: white;
             margin-top: 40px;
             padding: 20px;
         }
-        
+
+        /* Token bar */
+        .token-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f0f4ff;
+            border-radius: 7px;
+            border: 1px solid #c7d2fe;
+            font-size: 0.88em;
+            color: #555;
+        }
+
+        .token-bar input {
+            flex: 1;
+            padding: 5px 8px;
+            border: 1px solid #c7d2fe;
+            border-radius: 4px;
+            font-size: 0.95em;
+            font-family: monospace;
+        }
+
+        .token-bar button {
+            padding: 5px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .token-bar button:hover { background: #764ba2; }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 420px;
+            max-width: 95vw;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            position: relative;
+        }
+
+        .modal-card h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 14px;
+            right: 18px;
+            background: none;
+            border: none;
+            font-size: 1.4em;
+            cursor: pointer;
+            color: #999;
+            line-height: 1;
+        }
+
+        .modal-close:hover { color: #333; }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 14px;
+        }
+
+        .form-row label {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+        }
+
+        .form-row input,
+        .form-row select,
+        .form-row textarea {
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.95em;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-row input:focus,
+        .form-row select:focus,
+        .form-row textarea:focus {
+            border-color: #667eea;
+        }
+
+        /* Toast notifications */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: 7px;
+            color: white;
+            font-size: 0.93em;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+            max-width: 320px;
+        }
+
+        .toast-success { background: #27ae60; }
+        .toast-error   { background: #e74c3c; }
+
+        @keyframes slideIn {
+            from { transform: translateX(120%); opacity: 0; }
+            to   { transform: translateX(0);    opacity: 1; }
+        }
+
         @media (max-width: 768px) {
-            .content {
-                grid-template-columns: 1fr;
-            }
-            
-            .status-bar {
-                grid-template-columns: 1fr;
-            }
-            
-            h1 {
-                font-size: 1.5em;
-            }
+            .content      { grid-template-columns: 1fr; }
+            .status-bar   { grid-template-columns: 1fr; }
+            h1            { font-size: 1.5em; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🔔 ChapelBells</h1>
-            <p style="color: #666; margin-bottom: 20px;">Church Bell System - Dashboard</p>
-            
-            <div class="status-bar">
-                <div class="status-item">
-                    <div class="status-label">Status</div>
-                    <div class="status-value">
-                        {% if status.running %}
-                            <span style="color: #27ae60;">● Running</span>
-                        {% else %}
-                            <span style="color: #e74c3c;">● Stopped</span>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="status-item">
-                    <div class="status-label">Current Time</div>
-                    <div class="status-value time-display" id="current-time">
-                        {{ status.current_time }}
-                    </div>
-                </div>
-                
-                <div class="status-item">
-                    <div class="status-label">Scheduled Events</div>
-                    <div class="status-value">{{ status.scheduled_events }}</div>
-                </div>
-            </div>
-        </header>
-        
-        <div class="content">
-            <div class="card">
-                <h2>📅 Scheduled Events</h2>
-                
-                {% if events %}
-                    <ul class="event-list">
-                        {% for event in events %}
-                            <li class="event-item">
-                                <div class="event-name">{{ event.name }}</div>
-                                <div class="event-details">
-                                    <strong>Rule:</strong> {{ event.rule }}<br>
-                                    <strong>Profile:</strong> {{ event.profile }}/{{ event.tone }}
-                                </div>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p style="color: #999; padding: 20px 0;">No events scheduled</p>
-                {% endif %}
-                
-                <button class="button">+ Add Event</button>
-            </div>
-            
-            <div class="card">
-                <h2>⚙️ Settings</h2>
-                
-                <div class="quiet-hours {% if status.quiet_hours_enabled %}quiet-hours-enabled{% else %}quiet-hours-disabled{% endif %}">
-                    <strong>Quiet Hours</strong><br>
-                    {% if status.quiet_hours_enabled %}
-                        <span style="color: #856404;">
-                            Enabled: {{ status.quiet_hours.start }} → {{ status.quiet_hours.end }}
-                        </span>
+<div id="toast-container"></div>
+
+<!-- ============================================================ -->
+<!-- Modal: Add Event                                             -->
+<!-- ============================================================ -->
+<div id="modal-add-event" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-add-event-title">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('modal-add-event')" aria-label="Close">✕</button>
+        <h3 id="modal-add-event-title">📅 Add Scheduled Event</h3>
+        <div class="form-row">
+            <label for="ae-name">Name</label>
+            <input id="ae-name" type="text" maxlength="100" placeholder="e.g. Sunday Morning Bells">
+        </div>
+        <div class="form-row">
+            <label for="ae-rule">Rule (cron)</label>
+            <input id="ae-rule" type="text" maxlength="200" placeholder="0 9 * * 0">
+        </div>
+        <div class="form-row">
+            <label for="ae-profile">Profile</label>
+            <select id="ae-profile"></select>
+        </div>
+        <div class="form-row">
+            <label for="ae-tone">Tone</label>
+            <input id="ae-tone" type="text" value="bell" placeholder="bell">
+        </div>
+        <div class="form-row">
+            <label for="ae-desc">Description (optional)</label>
+            <input id="ae-desc" type="text" placeholder="Optional description">
+        </div>
+        <div class="button-group" style="margin-top:8px">
+            <button class="button button-secondary" onclick="closeModal('modal-add-event')">Cancel</button>
+            <button class="button" id="btn-add-event-submit" onclick="addEvent()">Add Event</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Modal: Test Audio                                            -->
+<!-- ============================================================ -->
+<div id="modal-test-audio" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-test-audio-title">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('modal-test-audio')" aria-label="Close">✕</button>
+        <h3 id="modal-test-audio-title">🔊 Test Audio</h3>
+        <div class="form-row">
+            <label for="ta-profile">Profile</label>
+            <select id="ta-profile"></select>
+        </div>
+        <div class="form-row">
+            <label for="ta-tone">Tone</label>
+            <input id="ta-tone" type="text" value="bell" placeholder="bell">
+        </div>
+        <div class="button-group" style="margin-top:8px">
+            <button class="button button-secondary" onclick="closeModal('modal-test-audio')">Cancel</button>
+            <button class="button" id="btn-test-audio-submit" onclick="testAudio()">▶ Play</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Modal: Change Audio (per-event)                              -->
+<!-- ============================================================ -->
+<div id="modal-change-audio" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-change-audio-title">
+    <div class="modal-card">
+        <button class="modal-close" onclick="closeModal('modal-change-audio')" aria-label="Close">✕</button>
+        <h3 id="modal-change-audio-title">🎵 Change Audio</h3>
+        <input type="hidden" id="ca-event-name">
+        <input type="hidden" id="ca-event-rule">
+        <input type="hidden" id="ca-event-desc">
+        <div class="form-row">
+            <label for="ca-profile">Profile</label>
+            <select id="ca-profile"></select>
+        </div>
+        <div class="form-row">
+            <label for="ca-tone">Tone</label>
+            <input id="ca-tone" type="text" value="bell" placeholder="bell">
+        </div>
+        <div class="button-group" style="margin-top:8px">
+            <button class="button button-secondary" onclick="closeModal('modal-change-audio')">Cancel</button>
+            <button class="button" id="btn-change-audio-submit" onclick="changeAudio()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Main Layout                                                  -->
+<!-- ============================================================ -->
+<div class="container">
+    <header>
+        <h1>🔔 ChapelBells</h1>
+        <p style="color: #666; margin-bottom: 10px;">Church Bell System - Dashboard</p>
+
+        <!-- Token bar -->
+        <div class="token-bar" id="token-bar">
+            <span>API Token:</span>
+            <input type="password" id="token-input" placeholder="Paste your API token here" autocomplete="off">
+            <button onclick="saveToken()">Save</button>
+            <span id="token-status" style="color:#27ae60;display:none">✓ Saved</span>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label">Status</div>
+                <div class="status-value">
+                    {% if status.running %}
+                        <span style="color: #27ae60;">● Running</span>
                     {% else %}
-                        <span style="color: #666;">Disabled</span>
+                        <span style="color: #e74c3c;">● Stopped</span>
                     {% endif %}
                 </div>
-                
-                <div style="margin-top: 15px;">
-                    <strong style="color: #333;">Audio Profiles</strong>
-                    <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
-                        {% if status.audio_profiles %}
-                            {% for profile in status.audio_profiles %}
-                                <div style="padding: 5px 0;">• {{ profile }}</div>
-                            {% endfor %}
-                        {% else %}
-                            <div style="color: #999;">No profiles available</div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="button-group">
-                    <button class="button button-secondary">Edit Settings</button>
-                    <button class="button">Test Audio</button>
+            </div>
+
+            <div class="status-item">
+                <div class="status-label">Current Time</div>
+                <div class="status-value time-display" id="current-time">
+                    {{ status.current_time }}
                 </div>
             </div>
+
+            <div class="status-item">
+                <div class="status-label">Scheduled Events</div>
+                <div class="status-value" id="event-count">{{ status.scheduled_events }}</div>
+            </div>
         </div>
-        
-        <footer class="footer">
-            <p>ChapelBells v1.0.0 • Automated Church Bell System</p>
-        </footer>
+    </header>
+
+    <div class="content">
+        <div class="card">
+            <h2>📅 Scheduled Events</h2>
+            <ul class="event-list" id="event-list">
+                {% if events %}
+                    {% for event in events %}
+                        <li class="event-item">
+                            <div class="event-name">{{ event.name }}</div>
+                            <div class="event-details">
+                                <strong>Rule:</strong> {{ event.rule }}<br>
+                                <strong>Profile:</strong> {{ event.profile }}/{{ event.tone }}
+                            </div>
+                            <div class="event-actions">
+                                <button class="btn-sm btn-sm-secondary"
+                                    onclick="openChangeAudio({{ event.name|tojson }}, {{ event.rule|tojson }}, {{ event.profile|tojson }}, {{ event.tone|tojson }}, {{ (event.description or '')|tojson }})">
+                                    🎵 Change Audio
+                                </button>
+                                <button class="btn-sm btn-sm-danger"
+                                    onclick="deleteEvent({{ event.name|tojson }})">
+                                    🗑 Delete
+                                </button>
+                            </div>
+                        </li>
+                    {% endfor %}
+                {% else %}
+                    <li style="color: #999; padding: 20px 0;">No events scheduled</li>
+                {% endif %}
+            </ul>
+
+            <button class="button" onclick="openModal_addEvent()">+ Add Event</button>
+        </div>
+
+        <div class="card">
+            <h2>⚙️ Settings</h2>
+
+            <div class="quiet-hours {% if status.quiet_hours_enabled %}quiet-hours-enabled{% else %}quiet-hours-disabled{% endif %}">
+                <strong>Quiet Hours</strong><br>
+                {% if status.quiet_hours_enabled %}
+                    <span style="color: #856404;">
+                        Enabled: {{ status.quiet_hours.start }} → {{ status.quiet_hours.end }}
+                    </span>
+                {% else %}
+                    <span style="color: #666;">Disabled</span>
+                {% endif %}
+            </div>
+
+            <div style="margin-top: 15px;">
+                <strong style="color: #333;">Audio Profiles</strong>
+                <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
+                    {% if status.audio_profiles %}
+                        {% for profile in status.audio_profiles %}
+                            <div style="padding: 5px 0;">• {{ profile }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="color: #999;">No profiles available</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="button button-secondary" disabled title="Settings editor coming soon">Edit Settings</button>
+                <button class="button" onclick="openTestAudio()">Test Audio</button>
+            </div>
+        </div>
     </div>
-    
-    <script>
-        // Update current time every second
-        function updateTime() {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString();
-            const timeEl = document.getElementById('current-time');
-            if (timeEl) {
-                timeEl.textContent = timeStr;
-            }
+
+    <footer class="footer">
+        <p>ChapelBells v1.0.0 • Automated Church Bell System</p>
+    </footer>
+</div>
+
+<script>
+    /* ------------------------------------------------------------------ */
+    /* Time display                                                        */
+    /* ------------------------------------------------------------------ */
+    function updateTime() {
+        var el = document.getElementById('current-time');
+        if (el) el.textContent = new Date().toLocaleTimeString();
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    /* ------------------------------------------------------------------ */
+    /* Token management                                                    */
+    /* ------------------------------------------------------------------ */
+    (function initToken() {
+        var stored = localStorage.getItem('chapelBellsToken');
+        if (stored) {
+            document.getElementById('token-input').value = stored;
+            document.getElementById('token-status').style.display = 'inline';
         }
-        
-        updateTime();
-        setInterval(updateTime, 1000);
-    </script>
+    })();
+
+    function saveToken() {
+        var val = document.getElementById('token-input').value.trim();
+        if (!val) { showToast('Token cannot be empty', 'error'); return; }
+        localStorage.setItem('chapelBellsToken', val);
+        document.getElementById('token-status').style.display = 'inline';
+        showToast('Token saved', 'success');
+    }
+
+    function getToken() {
+        var t = localStorage.getItem('chapelBellsToken');
+        if (!t) {
+            showToast('Please enter your API token above first', 'error');
+            document.getElementById('token-input').focus();
+        }
+        return t;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Toast notifications                                                 */
+    /* ------------------------------------------------------------------ */
+    function showToast(message, type) {
+        var container = document.getElementById('toast-container');
+        var toast = document.createElement('div');
+        toast.className = 'toast toast-' + (type || 'success');
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(function() {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 3000);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Modal helpers                                                       */
+    /* ------------------------------------------------------------------ */
+    function openModal(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.style.display = 'flex';
+            el.addEventListener('click', _backdropClose);
+        }
+    }
+
+    function closeModal(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.style.display = 'none';
+            el.removeEventListener('click', _backdropClose);
+        }
+    }
+
+    function _backdropClose(e) {
+        if (e.target === e.currentTarget) closeModal(e.currentTarget.id);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Load profiles into a <select>                                       */
+    /* ------------------------------------------------------------------ */
+    function loadProfiles(selectId, selectedValue) {
+        return fetch('/api/audio/profiles')
+            .then(function(r) { return r.json(); })
+            .then(function(profiles) {
+                var sel = document.getElementById(selectId);
+                sel.innerHTML = '';
+                profiles.forEach(function(p) {
+                    var opt = document.createElement('option');
+                    opt.value = p;
+                    opt.textContent = p;
+                    if (p === selectedValue) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(function() { showToast('Could not load profiles', 'error'); });
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Refresh event list                                                  */
+    /* ------------------------------------------------------------------ */
+    function refreshEvents() {
+        return fetch('/api/events')
+            .then(function(r) { return r.json(); })
+            .then(function(events) {
+                var list = document.getElementById('event-list');
+                var countEl = document.getElementById('event-count');
+                if (countEl) countEl.textContent = events.length;
+
+                if (events.length === 0) {
+                    list.innerHTML = '<li style="color:#999;padding:20px 0">No events scheduled</li>';
+                    return;
+                }
+
+                list.innerHTML = events.map(function(ev) {
+                    var name = ev.name || '';
+                    var rule = ev.rule || '';
+                    var profile = ev.profile || '';
+                    var tone = ev.tone || '';
+                    var desc = ev.description || '';
+                    return '<li class="event-item">' +
+                        '<div class="event-name">' + _esc(name) + '</div>' +
+                        '<div class="event-details">' +
+                            '<strong>Rule:</strong> ' + _esc(rule) + '<br>' +
+                            '<strong>Profile:</strong> ' + _esc(profile) + '/' + _esc(tone) +
+                        '</div>' +
+                        '<div class="event-actions">' +
+                            '<button class="btn-sm btn-sm-secondary" ' +
+                                'onclick="openChangeAudio(' + _jstr(name) + ',' + _jstr(rule) + ',' + _jstr(profile) + ',' + _jstr(tone) + ',' + _jstr(desc) + ')">' +
+                                '🎵 Change Audio' +
+                            '</button>' +
+                            '<button class="btn-sm btn-sm-danger" onclick="deleteEvent(' + _jstr(name) + ')">🗑 Delete</button>' +
+                        '</div>' +
+                    '</li>';
+                }).join('');
+            })
+            .catch(function() { showToast('Could not refresh events', 'error'); });
+    }
+
+    /* Escape HTML for safe insertion */
+    function _esc(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /* Safely JSON-encode a value for inline onclick attributes */
+    function _jstr(s) {
+        return JSON.stringify(String(s));
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Test Audio                                                          */
+    /* ------------------------------------------------------------------ */
+    function openTestAudio() {
+        loadProfiles('ta-profile').then(function() { openModal('modal-test-audio'); });
+    }
+
+    function testAudio() {
+        var token = getToken();
+        if (!token) return;
+
+        var profile = document.getElementById('ta-profile').value;
+        var tone = document.getElementById('ta-tone').value.trim() || 'bell';
+        var btn = document.getElementById('btn-test-audio-submit');
+        btn.disabled = true;
+        btn.textContent = '⏳ Playing…';
+
+        fetch('/api/audio/play', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ profile: profile, tone: tone })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (res.ok && res.data.status === 'success') {
+                showToast('Playing ' + profile + '/' + tone, 'success');
+                closeModal('modal-test-audio');
+            } else {
+                showToast('Playback failed: ' + (res.data.message || res.data.error || 'unknown error'), 'error');
+            }
+        })
+        .catch(function(err) { showToast('Error: ' + err.message, 'error'); })
+        .finally(function() { btn.disabled = false; btn.textContent = '▶ Play'; });
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* ------------------------------------------------------------------ */
+    /* Add Event                                                           */
+    /* ------------------------------------------------------------------ */
+    function openModal_addEvent() {
+        loadProfiles('ae-profile').then(function() { openModal('modal-add-event'); });
+    }
+
+    function addEvent() {
+        var token = getToken();
+        if (!token) return;
+
+        var name = document.getElementById('ae-name').value.trim();
+        var rule = document.getElementById('ae-rule').value.trim();
+        var profile = document.getElementById('ae-profile').value;
+        var tone = document.getElementById('ae-tone').value.trim() || 'bell';
+        var desc = document.getElementById('ae-desc').value.trim();
+
+        if (!name) { showToast('Name is required', 'error'); return; }
+        if (!rule) { showToast('Rule is required', 'error'); return; }
+
+        var btn = document.getElementById('btn-add-event-submit');
+        btn.disabled = true;
+        btn.textContent = '⏳ Saving…';
+
+        fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ name: name, rule: rule, profile: profile, tone: tone, description: desc })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (res.ok) {
+                showToast('Event "' + name + '" added', 'success');
+                closeModal('modal-add-event');
+                document.getElementById('ae-name').value = '';
+                document.getElementById('ae-rule').value = '';
+                document.getElementById('ae-tone').value = 'bell';
+                document.getElementById('ae-desc').value = '';
+                refreshEvents();
+            } else {
+                showToast('Error: ' + (res.data.error || 'unknown'), 'error');
+            }
+        })
+        .catch(function(err) { showToast('Error: ' + err.message, 'error'); })
+        .finally(function() { btn.disabled = false; btn.textContent = 'Add Event'; });
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Delete Event                                                        */
+    /* ------------------------------------------------------------------ */
+    function deleteEvent(name) {
+        var token = getToken();
+        if (!token) return;
+        if (!confirm('Delete event "' + name + '"?')) return;
+
+        fetch('/api/events/' + encodeURIComponent(name), {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (res.ok) {
+                showToast('Event "' + name + '" deleted', 'success');
+                refreshEvents();
+            } else {
+                showToast('Error: ' + (res.data.error || 'unknown'), 'error');
+            }
+        })
+        .catch(function(err) { showToast('Error: ' + err.message, 'error'); });
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Change Audio (per-event)                                            */
+    /* ------------------------------------------------------------------ */
+    function openChangeAudio(name, rule, profile, tone, desc) {
+        document.getElementById('ca-event-name').value = name;
+        document.getElementById('ca-event-rule').value = rule;
+        document.getElementById('ca-event-desc').value = desc || '';
+        document.getElementById('ca-tone').value = tone || 'bell';
+        loadProfiles('ca-profile', profile).then(function() {
+            openModal('modal-change-audio');
+        });
+    }
+
+    function changeAudio() {
+        var token = getToken();
+        if (!token) return;
+
+        var origName = document.getElementById('ca-event-name').value;
+        var rule = document.getElementById('ca-event-rule').value;
+        var desc = document.getElementById('ca-event-desc').value;
+        var profile = document.getElementById('ca-profile').value;
+        var tone = document.getElementById('ca-tone').value.trim() || 'bell';
+
+        var btn = document.getElementById('btn-change-audio-submit');
+        btn.disabled = true;
+        btn.textContent = '⏳ Saving…';
+
+        fetch('/api/events/' + encodeURIComponent(origName), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ name: origName, rule: rule, profile: profile, tone: tone, description: desc })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (res.ok) {
+                showToast('Audio updated for "' + origName + '"', 'success');
+                closeModal('modal-change-audio');
+                refreshEvents();
+            } else {
+                showToast('Error: ' + (res.data.error || 'unknown'), 'error');
+            }
+        })
+        .catch(function(err) { showToast('Error: ' + err.message, 'error'); })
+        .finally(function() { btn.disabled = false; btn.textContent = 'Save'; });
+    }
+</script>
 </body>
 </html>
