@@ -1,0 +1,31 @@
+Flask==2.3.0
+Werkzeug==2.3.0
+Click==8.1.0
+itsdangerous==2.1.0
+Jinja2==3.1.0
+MarkupSafe==2.1.0
+
+# Web framework
+flask-cors==4.0.0
+
+# Database
+sqlite3
+
+# YAML support (optional but recommended)
+PyYAML==6.0
+
+# Audio (optional - for higher accuracy astronomical calculations)
+ephem==4.1.4
+
+# Testing
+pytest==7.0.0
+pytest-cov==4.0.0
+
+# Linting & formatting
+flake8==6.0.0
+black==23.0.0
+pylint==2.17.0
+
+# Development
+ipython==8.10.0
+Werkzeug>=2.0

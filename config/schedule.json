@@ -1,0 +1,75 @@
+{
+  "location": {
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "timezone_offset": -5,
+    "timezone_name": "America/New_York"
+  },
+  "quiet_hours": {
+    "enabled": true,
+    "start": "21:00",
+    "end": "07:00",
+    "override_dates": [
+      "2024-12-25",
+      "2024-04-20"
+    ]
+  },
+  "audio": {
+    "device": "default",
+    "backend": "alsa",
+    "volume": 80,
+    "profile": "westminster"
+  },
+  "events": [
+    {
+      "name": "Hourly Chimes",
+      "rule": "every hour",
+      "profile": "westminster",
+      "tone": "bell",
+      "description": "Traditional Westminster quarters every hour",
+      "active_after": "07:00",
+      "active_before": "21:00"
+    },
+    {
+      "name": "Call to Service - Sunday",
+      "rule": "sunday at 10:00",
+      "profile": "carillon",
+      "tone": "bell",
+      "description": "Sunday morning service bell"
+    },
+    {
+      "name": "Noon Chime",
+      "rule": "* 12 * * *",
+      "profile": "light",
+      "tone": "bell",
+      "description": "Daily noon bell"
+    },
+    {
+      "name": "Evening Chime",
+      "rule": "* 17 * * *",
+      "profile": "traditional",
+      "tone": "bell",
+      "active_after": "17:00",
+      "active_before": "19:00"
+    }
+  ],
+  "ntp": {
+    "enabled": true,
+    "servers": [
+      "0.ubuntu.pool.ntp.org",
+      "1.ubuntu.pool.ntp.org"
+    ]
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "/var/log/chapel_bells/chapel_bells.log",
+    "rotation": "daily",
+    "retention_days": 30
+  },
+  "web": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 5000,
+    "debug": false
+  }
+}

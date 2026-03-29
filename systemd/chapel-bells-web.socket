@@ -1,0 +1,10 @@
+[Unit]
+Description=ChapelBells Web Admin Interface Socket
+Before=chapel-bells-web.service
+
+[Socket]
+ListenStream=5000
+Accept=false
+
+[Install]
+WantedBy=sockets.target

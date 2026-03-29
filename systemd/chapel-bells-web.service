@@ -1,0 +1,32 @@
+[Unit]
+Description=ChapelBells Web Admin Interface
+After=chapel-bells.service
+Requires=chapel-bells.service
+
+[Service]
+Type=notify
+User=chapel-bells
+Group=chapel-bells
+WorkingDirectory=/var/lib/chapel_bells
+
+# Flask app
+ExecStart=/usr/bin/python3 -m chapel_bells.web.app
+
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/chapel_bells /etc/chapel_bells
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chapel-bells-web
+
+[Install]
+WantedBy=multi-user.target

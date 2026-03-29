@@ -1,0 +1,50 @@
+[Unit]
+Description=ChapelBells - Automated Church Bell System
+Documentation=https://github.com/your-org/chapel-bells
+After=network.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=chapel-bells
+Group=chapel-bells
+WorkingDirectory=/var/lib/chapel_bells
+
+# Python venv or direct executable
+ExecStart=/usr/bin/python3 -m chapel_bells
+
+# Auto-restart on failure with exponential backoff
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/chapel_bells /etc/chapel_bells
+
+# Resource limits
+MemoryLimit=256M
+CPUQuota=50%
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="CHAPEL_BELLS_CONFIG=/etc/chapel_bells/config"
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chapel-bells
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Service dependencies
+BindsTo=dbus.service
+After=dbus.service
+
+[Install]
+WantedBy=multi-user.target

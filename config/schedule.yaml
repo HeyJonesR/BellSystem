@@ -1,0 +1,104 @@
+# ChapelBells Configuration
+# Location: /etc/chapel_bells/schedule.yaml
+
+# Astronomical settings
+location:
+  latitude: 40.7128
+  longitude: -74.0060
+  timezone_offset: -5  # EST
+  timezone_name: "America/New_York"
+
+# Quiet hours configuration
+quiet_hours:
+  enabled: true
+  start: "21:00"      # 9 PM - stop ringing
+  end: "07:00"        # 7 AM - start ringing again
+  # Dates to exclude from quiet hours (e.g., special services)
+  override_dates:
+    - "2024-12-25"    # Christmas
+    - "2024-04-20"    # Easter Sunday
+    - "2024-01-01"    # New Year's
+
+# Audio system
+audio:
+  device: "default"   # ALSA device
+  backend: "alsa"     # Options: alsa, pulse, ffplay
+  volume: 80          # 0-100
+  profile: "westminster"
+
+# Scheduled bell events
+events:
+  - name: "Hourly Chimes"
+    rule: "every hour"  # Rings at :00 of each hour
+    profile: "westminster"
+    tone: "bell"
+    description: "Traditional Westminster quarters every hour"
+    active_after: "07:00"   # Don't ring before 7 AM
+    active_before: "21:00"  # Don't ring after 9 PM
+
+  - name: "Call to Service - Sunday"
+    rule: "sunday at 10:00"
+    profile: "carillon"
+    tone: "bell"
+    description: "Sunday morning service bell"
+    repeat_interval: 0  # One-time
+
+  - name: "Call to Service - Wednesday"
+    rule: "wednesday at 19:00"
+    profile: "carillon"
+    tone: "bell"
+    description: "Wednesday evening service bell"
+
+  - name: "Noon Chime"
+    rule: "* 12 * * *"  # Cron format: every day at noon
+    profile: "light"
+    tone: "bell"
+    description: "Daily noon bell"
+
+  - name: "Evening Chime"
+    rule: "* 17 * * *"  # 5 PM
+    profile: "traditional"
+    tone: "bell"
+    active_after: "17:00"
+    active_before: "19:00"  # Only between 5-7 PM
+
+  - name: "Easter Special"
+    rule: "* 06 * * 0"  # Every Sunday at 6 AM
+    profile: "carillon"
+    tone: "bell"
+    description: "Early morning Easter service"
+    active_after: "06:00"
+
+# Time synchronization
+ntp:
+  enabled: true
+  servers:
+    - "0.ubuntu.pool.ntp.org"
+    - "1.ubuntu.pool.ntp.org"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "/var/log/chapel_bells/chapel_bells.log"
+  rotation: "daily"
+  retention_days: 30
+
+# Web admin interface
+web:
+  enabled: true
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+  # Simple token-based auth
+  secret_key: "change-this-in-production"
+
+# Advanced: custom bell sequences
+sequences:
+  westminster:
+    description: "Westminster quarter chimes"
+    timing:
+      quarter_1: 2    # 2 notes
+      quarter_2: 4    # 4 notes
+      quarter_3: 6    # 6 notes
+      hour: "varies"  # Hour strokes = hour number
