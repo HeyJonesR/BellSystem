@@ -445,3 +445,21 @@ class BellScheduler:
             "events": [e.to_dict() for e in self.get_events()]
         }
         return json.dumps(config, indent=2)
+    
+    def find_event_by_name(self, name: str) -> Optional[BellEvent]:
+        """
+        Find a scheduled event by name (case-insensitive).
+        
+        Args:
+            name: Event name to search for
+        
+        Returns:
+            BellEvent if found, None otherwise
+        """
+        events = self.get_events()
+        # Case-insensitive search
+        name_lower = name.lower()
+        for event in events:
+            if event.name.lower() == name_lower:
+                return event
+        return None

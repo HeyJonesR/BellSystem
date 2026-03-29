@@ -115,6 +115,22 @@ class ChapelBells:
             timezone_offset=-5  # EST
         )
         
+        # Optional: GPIO hardware support (Raspberry Pi)
+        self.gpio_controller = None
+        try:
+            from chapel_bells.gpio import GPIOController
+            self.gpio_controller = GPIOController(self.scheduler)
+        except ImportError:
+            logger.debug("GPIO support not available")
+        
+        # Optional: FIFO interface for external triggers
+        self.fifo_interface = None
+        try:
+            from chapel_bells.fifo import FIFOInterface
+            self.fifo_interface = FIFOInterface(self.scheduler)
+        except ImportError:
+            logger.debug("FIFO interface not available")
+        
         # Control flags
         self.running = False
         self.scheduler_thread: Optional[threading.Thread] = None
@@ -166,6 +182,20 @@ class ChapelBells:
         logger.info("Starting ChapelBells...")
         self.running = True
         
+        # Start GPIO controller (if available)
+        if self.gpio_controller:
+            try:
+                self.gpio_controller.start()
+            except Exception as e:
+                logger.warning(f"Failed to start GPIO: {e}")
+        
+        # Start FIFO interface (if available)
+        if self.fifo_interface:
+            try:
+                self.fifo_interface.start()
+            except Exception as e:
+                logger.warning(f"Failed to start FIFO interface: {e}")
+        
         # Start scheduler thread
         self.scheduler_thread = threading.Thread(
             target=self._scheduler_loop,
@@ -186,6 +216,20 @@ class ChapelBells:
         
         # Stop audio playback
         self.audio_engine.stop_playback()
+        
+        # Stop FIFO interface
+        if self.fifo_interface:
+            try:
+                self.fifo_interface.stop()
+            except Exception as e:
+                logger.warning(f"Error stopping FIFO: {e}")
+        
+        # Cleanup GPIO
+        if self.gpio_controller:
+            try:
+                self.gpio_controller.cleanup()
+            except Exception as e:
+                logger.warning(f"Error cleaning up GPIO: {e}")
         
         # Wait for scheduler thread
         if self.scheduler_thread:

@@ -14,8 +14,15 @@ sqlite3
 # YAML support (optional but recommended)
 PyYAML==6.0
 
-# Audio (optional - for higher accuracy astronomical calculations)
+# Astronomy (optional - for higher accuracy astronomical calculations)
 ephem==4.1.4
+
+# GPIO support (optional - Raspberry Pi only)
+# Uncomment on Raspberry Pi:
+# RPi.GPIO==0.7.0
+
+# APScheduler (optional - for simpler scheduling)
+# APScheduler==3.10.1
 
 # Testing
 pytest==7.0.0
@@ -29,3 +36,4 @@ pylint==2.17.0
 # Development
 ipython==8.10.0
 Werkzeug>=2.0
+

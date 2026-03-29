@@ -172,20 +172,100 @@ netstat -tuln | grep 5000
 python3 -m chapel_bells.web.app
 ```
 
+## GPIO & Hardware Integration (Raspberry Pi)
+
+### Optional: Add Physical Button Control
+
+```bash
+# Install GPIO library
+pip install RPi.GPIO
+
+# Wire a button to GPIO pin 17 (with pullup resistor)
+# Connect button between GPIO 17 and GND
+
+# Configure in gpio.py or create gpio_config.json:
+{
+  "button_pins": {
+    "manual_trigger": 17,
+    "system_reset": 27
+  },
+  "relay_pins": {
+    "bell_striker": 22
+  },
+  "led_pins": {
+    "status": 23,
+    "error": 24
+  }
+}
+```
+
+### Optional: FIFO External Triggers
+
+Trigger bells from shell scripts or cron jobs:
+
+```bash
+# Trigger a bell event by name
+echo "Sunday Service" > /var/run/chapel_bells.fifo
+
+# List all available events
+echo "list" > /var/run/chapel_bells.fifo
+
+# Stop current playback
+echo "stop" > /var/run/chapel_bells.fifo
+
+# Get system status
+echo "status" > /var/run/chapel_bells.fifo
+
+# Example: Cron job to ring at custom time
+# Add to crontab (crontab -e):
+# 0 14 * * * echo "Afternoon Bells" > /var/run/chapel_bells.fifo
+```
+
 ## Deploy to Raspberry Pi
 
 ### Quick SSH Deploy
 
 ```bash
 # On your development machine
-scp -r chapel-bells pi@192.168.1.100:/home/pi/
+scp -r BellSystem pi@192.168.1.100:/home/pi/
 
 # Connect to Pi
 ssh pi@192.168.1.100
 
-# Run install
-cd chapel-bells
-./scripts/install_on_pi.sh
+# cd into directory
+cd BellSystem
+
+# Install dependencies
+pip install -r requirements.txt
+
+# On Raspberry Pi 4+, also install GPIO support
+pip install RPi.GPIO
+
+# Create config
+cp config/schedule.yaml ~/chapel_bells.yaml
+nano ~/chapel_bells.yaml
+```
+
+### Install System Service
+
+```bash
+# Copy systemd service files
+sudo cp systemd/chapel-bells.service /etc/systemd/system/
+sudo cp systemd/chapel-bells-web.service /etc/systemd/system/
+sudo cp systemd/chapel-bells-web.socket /etc/systemd/system/
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable chapel-bells
+sudo systemctl enable chapel-bells-web
+
+# Start services
+sudo systemctl start chapel-bells
+sudo systemctl start chapel-bells-web
+
+# Check status
+sudo systemctl status chapel-bells
+journalctl -u chapel-bells -f
 ```
 
 ### Access From Network
