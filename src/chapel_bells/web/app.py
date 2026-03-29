@@ -65,7 +65,7 @@ class ChapelBellsWeb:
             response.headers["X-XSS-Protection"] = "1; mode=block"
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
             )
             response.headers["Cache-Control"] = "no-store"
             return response
@@ -194,7 +194,54 @@ class ChapelBellsWeb:
         def api_audio_profiles():
             """Get available audio profiles."""
             return jsonify(self.bell_app.audio_engine.get_available_profiles())
-        
+
+        @self.app.route("/api/audio/tones/<profile>")
+        def api_audio_tones(profile):
+            """Get available tones for a given audio profile."""
+            tones = list(self.bell_app.audio_engine.profiles.get(profile, {}).keys())
+            if not tones:
+                # Profile exists as an enum but has no loaded files; return empty list
+                return jsonify([])
+            return jsonify(tones)
+
+        @self.app.route("/api/events/<event_name>", methods=["PUT"])
+        @self._require_auth
+        def api_events_update(event_name):
+            """Update an existing event by deleting and recreating it."""
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "JSON body required"}), 400
+
+            # Validate required fields
+            name = data.get("name", event_name)
+            rule = data.get("rule", "")
+            if not name or not isinstance(name, str) or len(name) > 100:
+                return jsonify({"error": "name is required (max 100 chars)"}), 400
+            if not re.match(r'^[\w\s\-:*/]+$', name):
+                return jsonify({"error": "name contains invalid characters"}), 400
+            if not rule or not isinstance(rule, str) or len(rule) > 200:
+                return jsonify({"error": "rule is required (max 200 chars)"}), 400
+
+            try:
+                from chapel_bells.scheduler import BellEvent
+                # Delete the existing event first
+                self.bell_app.scheduler.delete_event(event_name)
+                # Recreate with updated data
+                event = BellEvent(
+                    name=name.strip(),
+                    rule=rule.strip(),
+                    profile=data.get("profile", "westminster"),
+                    tone=data.get("tone", "bell"),
+                    active_after=data.get("active_after"),
+                    active_before=data.get("active_before"),
+                    description=data.get("description", "")
+                )
+                self.bell_app.scheduler.add_event(event)
+                return jsonify({"status": "success", "event": event.to_dict()})
+            except Exception as e:
+                logger.error(f"Error updating event: {e}")
+                return jsonify({"error": str(e)}), 400
+
         @self.app.route("/api/audio/play", methods=["POST"])
         @self._require_auth
         def api_audio_play():

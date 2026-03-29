@@ -286,5 +286,119 @@ class TestIntegration:
             assert config["events"][0]["name"] == "Test"
 
 
+class TestWebAPI:
+    """Tests for the Flask web API endpoints."""
+
+    def _make_app(self, tmpdir):
+        """Create a ChapelBellsWeb test app with a file-based scheduler."""
+        from unittest.mock import MagicMock
+        from chapel_bells.web.app import ChapelBellsWeb
+        from chapel_bells.scheduler import BellScheduler, QuietHours
+        from chapel_bells.audio import AudioEngine
+
+        audio_dir = Path(tmpdir) / "audio"
+        audio_dir.mkdir()
+
+        # Create a simple test profile
+        profile_dir = audio_dir / "default"
+        profile_dir.mkdir()
+        (profile_dir / "bell.wav").touch()
+        (profile_dir / "tone_1.wav").touch()
+
+        # Use a file-based db so connections share state
+        db_path = str(Path(tmpdir) / "test.db")
+        scheduler = BellScheduler(db_path=db_path)
+        audio_engine = AudioEngine(str(audio_dir))
+
+        mock_app = MagicMock()
+        mock_app.scheduler = scheduler
+        mock_app.audio_engine = audio_engine
+        mock_app.get_status.return_value = {
+            "running": True,
+            "current_time": "12:00:00",
+            "scheduled_events": 0,
+            "quiet_hours_enabled": False,
+            "quiet_hours": {"start": "21:00", "end": "07:00"},
+            "audio_profiles": ["default"],
+        }
+
+        web = ChapelBellsWeb(mock_app)
+        # Retrieve the auto-generated token for auth
+        token = next(iter(web._api_tokens))
+        client = web.app.test_client()
+        return client, token
+
+    def test_get_audio_tones_empty_profile(self, tmp_path):
+        """GET /api/audio/tones/<profile> returns empty list for unknown profile."""
+        client, _ = self._make_app(tmp_path)
+        r = client.get("/api/audio/tones/nonexistent")
+        assert r.status_code == 200
+        assert r.get_json() == []
+
+    def test_get_audio_tones_known_profile(self, tmp_path):
+        """GET /api/audio/tones/<profile> returns tone names for a loaded profile."""
+        client, _ = self._make_app(tmp_path)
+        r = client.get("/api/audio/tones/default")
+        assert r.status_code == 200
+        tones = r.get_json()
+        assert set(tones) == {"bell", "tone_1"}
+
+    def test_put_event_requires_auth(self, tmp_path):
+        """PUT /api/events/<name> without auth returns 401."""
+        client, _ = self._make_app(tmp_path)
+        r = client.put("/api/events/Test",
+                       json={"name": "Test", "rule": "0 9 * * 0"},
+                       content_type="application/json")
+        assert r.status_code == 401
+
+    def test_put_event_creates_if_missing(self, tmp_path):
+        """PUT /api/events/<name> creates the event when it does not yet exist (upsert)."""
+        client, token = self._make_app(tmp_path)
+        r = client.put(
+            "/api/events/NoSuchEvent",
+            json={"name": "NoSuchEvent", "rule": "0 9 * * 0", "profile": "default", "tone": "bell"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 200
+        assert r.get_json()["status"] == "success"
+
+    def test_put_event_updates(self, tmp_path):
+        """PUT /api/events/<name> recreates the event with the new profile/tone."""
+        client, token = self._make_app(tmp_path)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Create the event first
+        r = client.post("/api/events",
+                        json={"name": "Morning Bells", "rule": "0 9 * * 0",
+                              "profile": "default", "tone": "bell"},
+                        headers=headers)
+        assert r.status_code == 201
+
+        # Update it
+        r = client.put("/api/events/Morning%20Bells",
+                       json={"name": "Morning Bells", "rule": "0 9 * * 0",
+                             "profile": "default", "tone": "tone_1"},
+                       headers=headers)
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["status"] == "success"
+        assert data["event"]["tone"] == "tone_1"
+
+    def test_put_event_invalid_name(self, tmp_path):
+        """PUT /api/events/<name> with invalid characters returns 400."""
+        client, token = self._make_app(tmp_path)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # First create a valid event to update
+        client.post("/api/events",
+                    json={"name": "Valid Event", "rule": "0 9 * * 0"},
+                    headers=headers)
+
+        r = client.put("/api/events/Valid%20Event",
+                       json={"name": "Bad<Name>!", "rule": "0 9 * * 0"},
+                       headers=headers)
+        assert r.status_code == 400
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
