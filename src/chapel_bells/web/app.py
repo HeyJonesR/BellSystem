@@ -25,7 +25,9 @@ class ChapelBellsWeb:
         Args:
             app_instance: ChapelBells application instance
         """
-        self.app = Flask(__name__)
+        # Initialize Flask with correct template folder
+        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        self.app = Flask(__name__, template_folder=template_dir)
         self.app.secret_key = os.environ.get("CHAPEL_BELLS_SECRET", "change-me-in-production")
         self.bell_app = app_instance
         

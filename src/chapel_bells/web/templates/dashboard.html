@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChapelBells - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .status-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .status-item {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-label {
+            color: #666;
+            font-size: 0.9em;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            color: #333;
+            font-size: 1.3em;
+            font-weight: 500;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .event-list {
+            list-style: none;
+        }
+        
+        .event-item {
+            background: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .event-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .event-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            margin-top: 15px;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        
+        .button:hover {
+            background: #764ba2;
+        }
+        
+        .button-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        
+        .button-secondary:hover {
+            background: #e8e8e8;
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .time-display {
+            font-size: 1.1em;
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .quiet-hours {
+            background: #fff3cd;
+            padding: 12px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+        
+        .quiet-hours-enabled {
+            color: #856404;
+        }
+        
+        .quiet-hours-disabled {
+            color: #666;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            padding: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-bar {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔔 ChapelBells</h1>
+            <p style="color: #666; margin-bottom: 20px;">Church Bell System - Dashboard</p>
+            
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-label">Status</div>
+                    <div class="status-value">
+                        {% if status.running %}
+                            <span style="color: #27ae60;">● Running</span>
+                        {% else %}
+                            <span style="color: #e74c3c;">● Stopped</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label">Current Time</div>
+                    <div class="status-value time-display" id="current-time">
+                        {{ status.current_time }}
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label">Scheduled Events</div>
+                    <div class="status-value">{{ status.scheduled_events }}</div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="content">
+            <div class="card">
+                <h2>📅 Scheduled Events</h2>
+                
+                {% if events %}
+                    <ul class="event-list">
+                        {% for event in events %}
+                            <li class="event-item">
+                                <div class="event-name">{{ event.name }}</div>
+                                <div class="event-details">
+                                    <strong>Rule:</strong> {{ event.rule }}<br>
+                                    <strong>Profile:</strong> {{ event.audio_profile }}<br>
+                                    <strong>Duration:</strong> {{ event.duration_seconds }}s
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p style="color: #999; padding: 20px 0;">No events scheduled</p>
+                {% endif %}
+                
+                <button class="button">+ Add Event</button>
+            </div>
+            
+            <div class="card">
+                <h2>⚙️ Settings</h2>
+                
+                <div class="quiet-hours {% if status.quiet_hours_enabled %}quiet-hours-enabled{% else %}quiet-hours-disabled{% endif %}">
+                    <strong>Quiet Hours</strong><br>
+                    {% if status.quiet_hours_enabled %}
+                        <span style="color: #856404;">
+                            Enabled: {{ status.quiet_hours.start }} → {{ status.quiet_hours.end }}
+                        </span>
+                    {% else %}
+                        <span style="color: #666;">Disabled</span>
+                    {% endif %}
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <strong style="color: #333;">Audio Profiles</strong>
+                    <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
+                        {% if status.audio_profiles %}
+                            {% for profile in status.audio_profiles %}
+                                <div style="padding: 5px 0;">• {{ profile }}</div>
+                            {% endfor %}
+                        {% else %}
+                            <div style="color: #999;">No profiles available</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="button button-secondary">Edit Settings</button>
+                    <button class="button">Test Audio</button>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="footer">
+            <p>ChapelBells v1.0.0 • Automated Church Bell System</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Update current time every second
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            const timeEl = document.getElementById('current-time');
+            if (timeEl) {
+                timeEl.textContent = timeStr;
+            }
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>
