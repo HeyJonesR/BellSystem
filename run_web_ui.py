@@ -31,24 +31,20 @@ events:
     rule: "sunday at 10:00"
     profile: "westminster"
     tone: "bell"
-    duration_seconds: 60
+    description: "Sunday morning service bell"
 
   - name: "Hourly Chimes"
     rule: "every hour"
     profile: "westminster"
     tone: "bell"
-    duration_seconds: 15
-    quiet_hours: true
+    description: "Hourly chime"
+    active_after: "07:00"
+    active_before: "21:00"
 
 quiet_hours:
   enabled: true
   start: "21:00"
   end: "07:00"
-
-audio_profiles:
-  westminster:
-    type: simple
-    duration: 60
 """)
 
 from chapel_bells import ChapelBells

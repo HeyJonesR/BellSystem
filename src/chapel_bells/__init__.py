@@ -1,7 +1,7 @@
 """
 ChapelBells - Modern Automated Church Bell System
 
-A lightweight, reliable system for managing church bells on Linux/Raspberry Pi.
+A lightweight, reliable system for managing church bells on Linux.
 Features include:
 - Flexible scheduling (hourly, daily, weekly, monthly)
 - Automatic DST handling

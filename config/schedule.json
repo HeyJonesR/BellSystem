@@ -39,14 +39,14 @@
     },
     {
       "name": "Noon Chime",
-      "rule": "* 12 * * *",
+      "rule": "0 12 * * *",
       "profile": "light",
       "tone": "bell",
       "description": "Daily noon bell"
     },
     {
       "name": "Evening Chime",
-      "rule": "* 17 * * *",
+      "rule": "0 17 * * *",
       "profile": "traditional",
       "tone": "bell",
       "active_after": "17:00",

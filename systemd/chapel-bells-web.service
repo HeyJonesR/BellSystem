@@ -4,29 +4,55 @@ After=chapel-bells.service
 Requires=chapel-bells.service
 
 [Service]
-Type=notify
+Type=simple
 User=chapel-bells
 Group=chapel-bells
 WorkingDirectory=/var/lib/chapel_bells
 
-# Flask app
-ExecStart=/usr/bin/python3 -m chapel_bells.web.app
+# Production: use gunicorn behind the systemd socket
+ExecStart=/opt/chapel-bells/venv/bin/gunicorn \
+    --bind 127.0.0.1:5000 \
+    --workers 2 \
+    --timeout 30 \
+    "chapel_bells.web.app:create_app()"
 
 Restart=on-failure
 RestartSec=10
-StartLimitInterval=300
+StartLimitIntervalSec=300
 StartLimitBurst=5
 
-# Security
-NoNewPrivileges=true
+# ── Security hardening ──
+NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+PrivateDevices=yes
+CapabilityBoundingSet=
+
 ReadWritePaths=/var/lib/chapel_bells /etc/chapel_bells
 
 # Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=chapel-bells-web
+
+# Resource limits
+MemoryMax=128M
+CPUQuota=25%
 
 [Install]
 WantedBy=multi-user.target
