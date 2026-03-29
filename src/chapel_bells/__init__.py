@@ -7,10 +7,8 @@ Features include:
 - Automatic DST handling
 - Quiet hours management
 - Web-based administration
-- Sunrise/sunset calculations
 - Multiple audio profiles
-- GPIO support (optional, Raspberry Pi)
-- FIFO interface for external triggers
+- Speaker output with configurable volume
 """
 
 __version__ = "1.0.0"
@@ -20,20 +18,6 @@ __license__ = "MIT"
 from chapel_bells.__main__ import ChapelBells
 from chapel_bells.scheduler import BellScheduler, BellEvent, QuietHours
 from chapel_bells.audio import AudioEngine, AudioConfig
-from chapel_bells.astro import AstronomicalCalculator
-
-# Optional hardware support
-try:
-    from chapel_bells.gpio import GPIOController, GPIOConfig, LEDIndicator
-    HAS_GPIO = True
-except ImportError:
-    HAS_GPIO = False
-
-try:
-    from chapel_bells.fifo import FIFOInterface
-    HAS_FIFO = True
-except ImportError:
-    HAS_FIFO = False
 
 __all__ = [
     "ChapelBells",
@@ -41,12 +25,5 @@ __all__ = [
     "BellEvent",
     "QuietHours",
     "AudioEngine",
-    "AudioConfig",
-    "AstronomicalCalculator",
-    "GPIOController",
-    "GPIOConfig",
-    "LEDIndicator",
-    "FIFOInterface",
-    "HAS_GPIO",
-    "HAS_FIFO"
+    "AudioConfig"
 ]

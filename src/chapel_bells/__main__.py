@@ -15,7 +15,6 @@ from datetime import datetime
 
 from chapel_bells.scheduler import BellScheduler, BellEvent, QuietHours
 from chapel_bells.audio import AudioEngine, AudioConfig
-from chapel_bells.astro import AstronomicalCalculator
 
 # Configure logging
 def setup_logging(log_dir: Path = None, log_level: int = logging.INFO):
@@ -66,7 +65,6 @@ class ChapelBells:
     Manages:
     - Event scheduling
     - Audio playback
-    - Astronomical calculations
     - Background scheduler thread
     """
     
@@ -107,29 +105,6 @@ class ChapelBells:
         
         # Register audio callback
         self.scheduler.register_callback(self._on_bell_event)
-        
-        # Astronomical calculator (default: NYC)
-        self.astro = AstronomicalCalculator(
-            latitude=40.7128,
-            longitude=-74.0060,
-            timezone_offset=-5  # EST
-        )
-        
-        # Optional: GPIO hardware support (Raspberry Pi)
-        self.gpio_controller = None
-        try:
-            from chapel_bells.gpio import GPIOController
-            self.gpio_controller = GPIOController(self.scheduler)
-        except ImportError:
-            logger.debug("GPIO support not available")
-        
-        # Optional: FIFO interface for external triggers
-        self.fifo_interface = None
-        try:
-            from chapel_bells.fifo import FIFOInterface
-            self.fifo_interface = FIFOInterface(self.scheduler)
-        except ImportError:
-            logger.debug("FIFO interface not available")
         
         # Control flags
         self.running = False
@@ -182,20 +157,6 @@ class ChapelBells:
         logger.info("Starting ChapelBells...")
         self.running = True
         
-        # Start GPIO controller (if available)
-        if self.gpio_controller:
-            try:
-                self.gpio_controller.start()
-            except Exception as e:
-                logger.warning(f"Failed to start GPIO: {e}")
-        
-        # Start FIFO interface (if available)
-        if self.fifo_interface:
-            try:
-                self.fifo_interface.start()
-            except Exception as e:
-                logger.warning(f"Failed to start FIFO interface: {e}")
-        
         # Start scheduler thread
         self.scheduler_thread = threading.Thread(
             target=self._scheduler_loop,
@@ -217,20 +178,6 @@ class ChapelBells:
         # Stop audio playback
         self.audio_engine.stop_playback()
         
-        # Stop FIFO interface
-        if self.fifo_interface:
-            try:
-                self.fifo_interface.stop()
-            except Exception as e:
-                logger.warning(f"Error stopping FIFO: {e}")
-        
-        # Cleanup GPIO
-        if self.gpio_controller:
-            try:
-                self.gpio_controller.cleanup()
-            except Exception as e:
-                logger.warning(f"Error cleaning up GPIO: {e}")
-        
         # Wait for scheduler thread
         if self.scheduler_thread:
             self.scheduler_thread.join(timeout=5)
@@ -250,14 +197,9 @@ class ChapelBells:
     
     def get_status(self) -> dict:
         """Get system status."""
-        sunrise, sunset = self.astro.get_sunrise_sunset()
-        
         return {
             "running": self.running,
             "current_time": datetime.now().isoformat(),
-            "sunrise": sunrise.isoformat() if sunrise else None,
-            "sunset": sunset.isoformat() if sunset else None,
-            "is_daytime": self.astro.is_daytime(),
             "quiet_hours_enabled": self.scheduler.quiet_hours.enabled,
             "quiet_hours": {
                 "start": self.scheduler.quiet_hours.start,

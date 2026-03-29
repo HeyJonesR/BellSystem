@@ -117,6 +117,10 @@ class AstronomicalCalculator:
         sunrise_hour = solar_noon - h_degrees / 15
         sunset_hour = solar_noon + h_degrees / 15
         
+        # Clamp hours to valid range (0-23)
+        sunrise_hour = sunrise_hour % 24
+        sunset_hour = sunset_hour % 24
+        
         # Convert to datetime
         sunrise = datetime(
             date.year, date.month, date.day,

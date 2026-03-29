@@ -15,8 +15,8 @@ Get your church bell system running in 15 minutes!
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/chapel-bells.git
-cd chapel-bells
+git clone https://github.com/HeyJonesR/BellSystem.git
+cd BellSystem
 
 # Create virtual environment
 python3 -m venv venv
@@ -41,7 +41,7 @@ Edit these key settings:
 location:
   latitude: 40.7128    # Your church latitude
   longitude: -74.0060  # Your church longitude
-  timezone_offset: -5  # UTC offset
+  timezone: America/New_York
 
 quiet_hours:
   start: "21:00"       # Stop ringing at 9 PM
@@ -50,8 +50,8 @@ quiet_hours:
 events:
   - name: "Hourly Chimes"
     rule: "every hour"
-    active_after: "07:00"
-    active_before: "21:00"
+    audio_profile: "westminster"
+    duration_seconds: 15
 ```
 
 ### 3. Test Audio
@@ -121,9 +121,12 @@ Via web UI:
 
 ```bash
 # Install as systemd service (Linux only)
-./scripts/install_service.sh
+sudo cp systemd/chapel-bells.service /etc/systemd/system/
+sudo cp systemd/chapel-bells-web.service /etc/systemd/system/
 
-# Start service
+# Reload and start
+sudo systemctl daemon-reload
+sudo systemctl enable chapel-bells
 sudo systemctl start chapel-bells
 
 # Check status
@@ -169,56 +172,7 @@ ps aux | grep chapel_bells
 netstat -tuln | grep 5000
 
 # Try starting manually
-python3 -m chapel_bells.web.app
-```
-
-## GPIO & Hardware Integration (Raspberry Pi)
-
-### Optional: Add Physical Button Control
-
-```bash
-# Install GPIO library
-pip install RPi.GPIO
-
-# Wire a button to GPIO pin 17 (with pullup resistor)
-# Connect button between GPIO 17 and GND
-
-# Configure in gpio.py or create gpio_config.json:
-{
-  "button_pins": {
-    "manual_trigger": 17,
-    "system_reset": 27
-  },
-  "relay_pins": {
-    "bell_striker": 22
-  },
-  "led_pins": {
-    "status": 23,
-    "error": 24
-  }
-}
-```
-
-### Optional: FIFO External Triggers
-
-Trigger bells from shell scripts or cron jobs:
-
-```bash
-# Trigger a bell event by name
-echo "Sunday Service" > /var/run/chapel_bells.fifo
-
-# List all available events
-echo "list" > /var/run/chapel_bells.fifo
-
-# Stop current playback
-echo "stop" > /var/run/chapel_bells.fifo
-
-# Get system status
-echo "status" > /var/run/chapel_bells.fifo
-
-# Example: Cron job to ring at custom time
-# Add to crontab (crontab -e):
-# 0 14 * * * echo "Afternoon Bells" > /var/run/chapel_bells.fifo
+python3 run_web_ui.py
 ```
 
 ## Deploy to Raspberry Pi
@@ -237,13 +191,6 @@ cd BellSystem
 
 # Install dependencies
 pip install -r requirements.txt
-
-# On Raspberry Pi 4+, also install GPIO support
-pip install RPi.GPIO
-
-# Create config
-cp config/schedule.yaml ~/chapel_bells.yaml
-nano ~/chapel_bells.yaml
 ```
 
 ### Install System Service
