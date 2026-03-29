@@ -31,7 +31,7 @@ class AudioConfig:
     """Audio engine configuration."""
     audio_device: str = "default"     # ALSA device or pulse sink
     volume: int = 80                  # 0-100
-    backend: str = "alsa"             # "alsa", "pulse", "ffplay"
+    backend: str = "auto"             # "auto", "alsa", "pulse", "pipewire", "ffplay"
     sample_rate: int = 44100          # Hz
     channels: int = 2                 # mono=1, stereo=2
 
@@ -73,9 +73,9 @@ class AudioEngine:
                 audio_files = {}
                 
                 # Find audio files in this profile
-                for audio_file in profile_dir.glob("*.wav"):
-                    # Filename pattern: tone_1.wav, tone_2.wav, etc.
-                    audio_files[audio_file.stem] = audio_file
+                for audio_file in profile_dir.iterdir():
+                    if audio_file.suffix.lower() in ('.wav', '.mp3', '.flac', '.ogg'):
+                        audio_files[audio_file.stem] = audio_file
                 
                 if audio_files:
                     self.profiles[profile_name] = audio_files
@@ -91,19 +91,34 @@ class AudioEngine:
             # Custom loaded profile
             return self.profiles[profile].get(tone)
         
-        # Look for default profile in audio_dir
-        profile_path = self.audio_dir / profile / f"{tone}.wav"
-        if profile_path.exists():
-            return profile_path
+        # Look for default profile in audio_dir (try multiple formats)
+        for ext in ('.wav', '.mp3', '.flac', '.ogg'):
+            profile_path = self.audio_dir / profile / f"{tone}{ext}"
+            if profile_path.exists():
+                return profile_path
         
         logger.warning(f"Audio file not found: {profile}/{tone}.wav")
         return None
     
+    def _play_with_pipewire(self, audio_file: Path) -> bool:
+        """Play audio using pw-play (PipeWire, default on Pi 5 Bookworm)."""
+        try:
+            cmd = ["pw-play", str(audio_file)]
+            self.current_playback = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            return True
+        except FileNotFoundError:
+            logger.error("pw-play not installed")
+            return False
+
     def _play_with_ffplay(self, audio_file: Path) -> bool:
         """Fallback: play audio using ffplay."""
         try:
             cmd = ["ffplay", "-nodisp", "-autoexit", str(audio_file)]
-            subprocess.Popen(
+            self.current_playback = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
@@ -161,17 +176,32 @@ class AudioEngine:
                 logger.warning(f"No audio file for {profile}/{tone}")
                 return False
             
-            # Try to play with configured backend
+            # Try to play with configured backend (or auto-detect)
             success = False
-            if self.config.backend == "alsa":
+            backend = self.config.backend
+            
+            if backend == "auto":
+                # Auto-detect: try pipewire → pulse → alsa → ffplay
+                for try_fn in (
+                    self._play_with_pipewire,
+                    self._play_with_pulse,
+                    self._play_with_alsa,
+                    self._play_with_ffplay,
+                ):
+                    success = try_fn(audio_file)
+                    if success:
+                        break
+            elif backend == "pipewire":
+                success = self._play_with_pipewire(audio_file)
+            elif backend == "alsa":
                 success = self._play_with_alsa(audio_file)
-            elif self.config.backend == "pulse":
+            elif backend == "pulse":
                 success = self._play_with_pulse(audio_file)
             else:
                 success = self._play_with_ffplay(audio_file)
             
-            if not success and self.config.backend != "ffplay":
-                # Fallback to ffplay
+            if not success and backend not in ("auto", "ffplay"):
+                # Last-resort fallback
                 logger.info("Falling back to ffplay")
                 success = self._play_with_ffplay(audio_file)
             

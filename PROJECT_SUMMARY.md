@@ -244,7 +244,6 @@ Total Documentation: ~1500 lines
 - ✅ Configuration persistence
 
 ### Optional Enhancements
-- ✅ GPIO integration framework (in code comments)
 - ✅ Mobile-friendly responsive UI (wireframe)
 - ✅ Configuration export/import
 - ✅ Remote admin access (via SSH)
@@ -389,7 +388,6 @@ quiet_hours:
 - [ ] Internationalization (i18n)
 
 ### Phase 4 (Long-term)
-- [ ] GPIO integration for external devices
 - [ ] Advanced audio effects synthesis
 - [ ] Integration with church management systems
 - [ ] Distributed architecture support

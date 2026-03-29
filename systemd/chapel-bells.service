@@ -1,38 +1,58 @@
 [Unit]
 Description=ChapelBells - Automated Church Bell System
-Documentation=https://github.com/your-org/chapel-bells
-After=network.target time-sync.target
+Documentation=https://github.com/HeyJonesR/BellSystem
+After=network.target time-sync.target sound.target
 Wants=network-online.target
 
 [Service]
-Type=notify
+Type=simple
 User=chapel-bells
 Group=chapel-bells
 WorkingDirectory=/var/lib/chapel_bells
 
 # Python venv or direct executable
-ExecStart=/usr/bin/python3 -m chapel_bells
+ExecStart=/opt/chapel-bells/venv/bin/python -m chapel_bells
 
 # Auto-restart on failure with exponential backoff
 Restart=on-failure
 RestartSec=10
-StartLimitInterval=300
+StartLimitIntervalSec=300
 StartLimitBurst=5
 
-# Security hardening
-NoNewPrivileges=true
+# ── Security hardening ──
+NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/var/lib/chapel_bells /etc/chapel_bells
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+# Allow access to audio devices (sound board / DAC HAT)
+PrivateDevices=no
+SupplementaryGroups=audio
+
+# Writable paths
+ReadWritePaths=/var/lib/chapel_bells /etc/chapel_bells /var/log/chapel_bells
 
 # Resource limits
-MemoryLimit=256M
+MemoryMax=256M
 CPUQuota=50%
 
 # Environment
 Environment="PYTHONUNBUFFERED=1"
-Environment="CHAPEL_BELLS_CONFIG=/etc/chapel_bells/config"
+Environment="CHAPEL_BELLS_CONFIG=/etc/chapel_bells"
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=chapel-bells
@@ -41,10 +61,6 @@ SyslogIdentifier=chapel-bells
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=10
-
-# Service dependencies
-BindsTo=dbus.service
-After=dbus.service
 
 [Install]
 WantedBy=multi-user.target

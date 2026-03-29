@@ -50,8 +50,7 @@ ChapelBells is a lightweight, automated church bell system designed for Linux/Ra
 │                                                        │
 │  ┌──────────────────────────────────────────────┐    │
 │  │ Hardware I/O                                 │    │
-│  │ - Audio Jack → Amplifier                     │    │
-│  │ - GPIO (optional) → Relays, lights           │    │
+│  │ - Audio Jack → Amplifier → Speakers          │    │
 │  └──────────────────────────────────────────────┘    │
 │                                                        │
 └─────────────────────────────────────────────────────────┘

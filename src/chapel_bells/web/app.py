@@ -5,14 +5,20 @@ Provides dashboard, schedule editor, and system settings.
 
 import json
 import os
+import re
+import secrets
 from pathlib import Path
 from datetime import datetime
 from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session
+from markupsafe import escape
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Max items returned from history endpoint
+MAX_HISTORY_LIMIT = 500
 
 
 class ChapelBellsWeb:
@@ -28,23 +34,54 @@ class ChapelBellsWeb:
         # Initialize Flask with correct template folder
         template_dir = os.path.join(os.path.dirname(__file__), 'templates')
         self.app = Flask(__name__, template_folder=template_dir)
-        self.app.secret_key = os.environ.get("CHAPEL_BELLS_SECRET", "change-me-in-production")
+        self.app.secret_key = os.environ.get("CHAPEL_BELLS_SECRET") or secrets.token_hex(32)
         self.bell_app = app_instance
+        
+        # Load API tokens from environment (comma-separated)
+        tokens_env = os.environ.get("CHAPEL_BELLS_API_TOKENS", "")
+        self._api_tokens = {t.strip() for t in tokens_env.split(",") if t.strip()}
+        if not self._api_tokens:
+            # Generate a one-time token and log it so the admin can capture it
+            generated = secrets.token_urlsafe(32)
+            self._api_tokens = {generated}
+            logger.warning(
+                "No CHAPEL_BELLS_API_TOKENS set. Generated token: %s  "
+                "Set CHAPEL_BELLS_API_TOKENS env var for persistence.",
+                generated,
+            )
+        
+        # Register security headers
+        self._register_security_headers()
         
         # Register routes
         self._register_routes()
     
+    def _register_security_headers(self):
+        """Add security headers to all responses."""
+        @self.app.after_request
+        def add_security_headers(response):
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-XSS-Protection"] = "1; mode=block"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+            )
+            response.headers["Cache-Control"] = "no-store"
+            return response
+    
     def _require_auth(self, f):
-        """Decorator to require authentication."""
+        """Decorator to require Bearer-token authentication."""
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Simple check - in production use proper auth
             auth = request.headers.get("Authorization", "")
             if not auth.startswith("Bearer "):
                 return jsonify({"error": "Unauthorized"}), 401
             
-            token = auth[7:]  # Remove "Bearer "
-            # TODO: validate token against configured tokens
+            token = auth[7:]
+            if token not in self._api_tokens:
+                logger.warning("Rejected invalid API token from %s", request.remote_addr)
+                return jsonify({"error": "Unauthorized"}), 401
             
             return f(*args, **kwargs)
         
@@ -79,15 +116,28 @@ class ChapelBellsWeb:
             return jsonify([e.to_dict() for e in events])
         
         @self.app.route("/api/events", methods=["POST"])
+        @self._require_auth
         def api_events_create():
             """Create new event."""
             data = request.get_json()
+            if not data:
+                return jsonify({"error": "JSON body required"}), 400
+            
+            # Validate required fields
+            name = data.get("name", "")
+            rule = data.get("rule", "")
+            if not name or not isinstance(name, str) or len(name) > 100:
+                return jsonify({"error": "name is required (max 100 chars)"}), 400
+            if not re.match(r'^[\w\s\-:*/]+$', name):
+                return jsonify({"error": "name contains invalid characters"}), 400
+            if not rule or not isinstance(rule, str) or len(rule) > 200:
+                return jsonify({"error": "rule is required (max 200 chars)"}), 400
             
             try:
                 from chapel_bells.scheduler import BellEvent
                 event = BellEvent(
-                    name=data["name"],
-                    rule=data["rule"],
+                    name=name.strip(),
+                    rule=rule.strip(),
                     profile=data.get("profile", "westminster"),
                     tone=data.get("tone", "bell"),
                     active_after=data.get("active_after"),
@@ -106,6 +156,7 @@ class ChapelBellsWeb:
                 return jsonify({"error": str(e)}), 400
         
         @self.app.route("/api/events/<event_name>", methods=["DELETE"])
+        @self._require_auth
         def api_events_delete(event_name):
             """Delete event by name."""
             try:
@@ -120,6 +171,7 @@ class ChapelBellsWeb:
             return jsonify(self.bell_app.scheduler.quiet_hours.to_dict())
         
         @self.app.route("/api/quiet-hours", methods=["PUT"])
+        @self._require_auth
         def api_quiet_hours_update():
             """Update quiet hours."""
             data = request.get_json()
@@ -144,6 +196,7 @@ class ChapelBellsWeb:
             return jsonify(self.bell_app.audio_engine.get_available_profiles())
         
         @self.app.route("/api/audio/play", methods=["POST"])
+        @self._require_auth
         def api_audio_play():
             """Test audio playback."""
             data = request.get_json()
@@ -160,7 +213,7 @@ class ChapelBellsWeb:
         @self.app.route("/api/history")
         def api_history():
             """Get bell playback history."""
-            limit = request.args.get("limit", 100, type=int)
+            limit = min(request.args.get("limit", 100, type=int), MAX_HISTORY_LIMIT)
             history = self.bell_app.scheduler.get_playback_history(limit)
             return jsonify(history)
         
@@ -179,6 +232,7 @@ class ChapelBellsWeb:
             })
         
         @self.app.route("/api/settings/astro", methods=["PUT"])
+        @self._require_auth
         def api_settings_astro():
             """Update astronomical settings."""
             data = request.get_json()
@@ -195,6 +249,7 @@ class ChapelBellsWeb:
                 return jsonify({"error": str(e)}), 400
         
         @self.app.route("/api/settings/audio", methods=["PUT"])
+        @self._require_auth
         def api_settings_audio():
             """Update audio settings."""
             data = request.get_json()
@@ -210,166 +265,24 @@ class ChapelBellsWeb:
             config_json = self.bell_app.scheduler.to_json()
             return config_json, 200, {"Content-Type": "application/json"}
     
-    def run(self, host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
-        """Start the web server."""
+    def run(self, host: str = "127.0.0.1", port: int = 5000, debug: bool = False):
+        """Start the web server (dev only; use gunicorn in production)."""
         logger.info(f"Starting web server on {host}:{port}")
         self.app.run(host=host, port=port, debug=debug)
 
 
-# Minimal HTML template (can be extended with full UI)
-DASHBOARD_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>ChapelBells Admin</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .header h1 { color: #333; margin-bottom: 10px; }
-        .status { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
-        .status-item { background: #f9f9f9; padding: 15px; border-radius: 6px; }
-        .status-item label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600; }
-        .status-item .value { font-size: 14px; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card h2 { color: #333; margin-bottom: 15px; font-size: 18px; }
-        .event-list { list-style: none; }
-        .event-item { background: #f9f9f9; padding: 12px; border-left: 3px solid #007bff; margin-bottom: 10px; border-radius: 4px; }
-        .event-item strong { display: block; margin-bottom: 4px; }
-        .event-item small { color: #666; }
-        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 14px; }
-        button:hover { background: #0056b3; }
-        input, select, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-        .form-group { margin-bottom: 15px; }
-        .alert { padding: 12px; background: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔔 ChapelBells Administration</h1>
-            <div class="status">
-                <div class="status-item">
-                    <label>Status</label>
-                    <div class="value" id="status-running">Loading...</div>
-                </div>
-                <div class="status-item">
-                    <label>Current Time</label>
-                    <div class="value" id="status-time">Loading...</div>
-                </div>
-                <div class="status-item">
-                    <label>Sunrise / Sunset</label>
-                    <div class="value" id="status-sun">Loading...</div>
-                </div>
-                <div class="status-item">
-                    <label>Quiet Hours</label>
-                    <div class="value" id="status-quiet">Loading...</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2>Scheduled Events</h2>
-            <ul class="event-list" id="events-list">
-                <li>Loading events...</li>
-            </ul>
-        </div>
-        
-        <div class="card">
-            <h2>Recent Playback</h2>
-            <ul class="event-list" id="history-list">
-                <li>Loading history...</li>
-            </ul>
-        </div>
-    </div>
-    
-    <script>
-        async function updateDashboard() {
-            try {
-                const response = await fetch('/api/status');
-                const status = await response.json();
-                
-                document.getElementById('status-running').textContent = status.running ? '✓ Running' : '✗ Stopped';
-                document.getElementById('status-time').textContent = new Date(status.current_time).toLocaleTimeString();
-                document.getElementById('status-quiet').textContent = status.quiet_hours_enabled ? `${status.quiet_hours.start} - ${status.quiet_hours.end}` : 'Disabled';
-                
-                if (status.sunrise && status.sunset) {
-                    const sunrise = new Date(status.sunrise).toLocaleTimeString();
-                    const sunset = new Date(status.sunset).toLocaleTimeString();
-                    document.getElementById('status-sun').textContent = `↑${sunrise} ↓${sunset}`;
-                }
-            } catch (e) {
-                console.error('Error fetching status:', e);
-            }
-        }
-        
-        async function loadEvents() {
-            try {
-                const response = await fetch('/api/events');
-                const events = await response.json();
-                const list = document.getElementById('events-list');
-                
-                if (events.length === 0) {
-                    list.innerHTML = '<li>No events scheduled</li>';
-                    return;
-                }
-                
-                list.innerHTML = events.map(e => `
-                    <li class="event-item">
-                        <strong>${e.name}</strong>
-                        <small>${e.rule} | ${e.profile}/${e.tone}</small>
-                    </li>
-                `).join('');
-            } catch (e) {
-                console.error('Error loading events:', e);
-            }
-        }
-        
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/history?limit=10');
-                const history = await response.json();
-                const list = document.getElementById('history-list');
-                
-                if (history.length === 0) {
-                    list.innerHTML = '<li>No bell playback yet</li>';
-                    return;
-                }
-                
-                list.innerHTML = history.map(h => `
-                    <li class="event-item">
-                        <strong>${h.event}</strong>
-                        <small>${new Date(h.time).toLocaleString()} | ${h.profile}/${h.tone}</small>
-                    </li>
-                `).join('');
-            } catch (e) {
-                console.error('Error loading history:', e);
-            }
-        }
-        
-        // Update dashboard every 5 seconds
-        updateDashboard();
-        loadEvents();
-        loadHistory();
-        
-        setInterval(updateDashboard, 5000);
-        setInterval(loadHistory, 10000);
-    </script>
-</body>
-</html>
-"""
+def create_app():
+    """WSGI application factory for gunicorn / production use."""
+    from chapel_bells import ChapelBells
+    bell_app = ChapelBells()
+    bell_app.start()
+    web = ChapelBellsWeb(bell_app)
+    return web.app
 
 
 if __name__ == "__main__":
-    # Example standalone usage
     from chapel_bells import ChapelBells
     
     bell_app = ChapelBells()
     web_app = ChapelBellsWeb(bell_app)
-    
-    # In production, run bell_app in background thread
-    # For now, just start web server
-    web_app.run(host="0.0.0.0", port=5000, debug=True)
+    web_app.run(host="127.0.0.1", port=5000, debug=False)

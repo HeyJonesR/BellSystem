@@ -183,14 +183,20 @@ class BellScheduler:
             """)
     
     def add_event(self, event: BellEvent):
-        """Add an event to the schedule."""
+        """Add an event to the schedule (skips if name already exists)."""
         with self.lock:
             # Validate rule format
             if not self._validate_rule(event.rule):
                 raise ValueError(f"Invalid rule format: {event.rule}")
             
-            # Store in database
+            # Store in database (skip duplicates by name)
             with sqlite3.connect(self.db_path) as conn:
+                existing = conn.execute(
+                    "SELECT 1 FROM events WHERE name = ?", (event.name,)
+                ).fetchone()
+                if existing:
+                    logger.debug(f"Event already exists, skipping: {event.name}")
+                    return
                 conn.execute("""
                     INSERT INTO events (name, rule, profile, tone, active_after, active_before, description)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -296,7 +302,7 @@ class BellScheduler:
         parts = rule.split()
         if len(parts) == 5:
             try:
-                minute = int(parts[0]) if parts[0] != "*" else None
+                minute = int(parts[0]) if parts[0] != "*" else 0
                 hour = int(parts[1]) if parts[1] != "*" else None
                 day_of_month = int(parts[2]) if parts[2] != "*" else None
                 month = int(parts[3]) if parts[3] != "*" else None

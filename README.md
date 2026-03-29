@@ -102,7 +102,7 @@ GET  /api/history             - Playback history
 
 For complete API reference, see [docs/API.md](./docs/API.md)
 
-## Deployment on Raspberry Pi
+## Deployment
 
 ```bash
 # Copy systemd service files
@@ -160,7 +160,7 @@ ChurchBell/
 ## Requirements
 
 - **Python:** 3.9 or later
-- **OS:** Linux (Ubuntu, Debian, Raspberry Pi OS recommended)
+- **OS:** Linux (Ubuntu, Debian recommended)
 - **Audio:** ALSA or PulseAudio
 
 ## Installation
@@ -259,43 +259,6 @@ docker run -d --name chapel-bells \
   chapel-bells
 ```
 
-## Hardware Integration (Optional)
-
-### GPIO Control
-
-Connect buttons and relays to Raspberry Pi GPIO pins for physical control:
-
-```bash
-# Hardware requirements
-- Raspberry Pi (any model)
-- Push buttons for manual bell triggers
-- Relays for high-power bell strikers
-- Status LEDs for visual feedback
-
-# Install GPIO support
-pip install RPi.GPIO
-
-# Configure pins in src/chapel_bells/gpio.py or create a GPIO config file
-```
-
-### FIFO External Triggers
-
-Trigger bells from shell scripts or external systems:
-
-```bash
-# Trigger a bell event by name
-echo "Sunday Service" > /var/run/chapel_bells.fifo
-
-# List available events
-echo "list" > /var/run/chapel_bells.fifo
-
-# Stop current playback
-echo "stop" > /var/run/chapel_bells.fifo
-
-# Get system status
-echo "status" > /var/run/chapel_bells.fifo
-```
-
 ## Configuration
 
 ### Schedule Format
@@ -339,13 +302,11 @@ See [config/schedule.yaml](./config/schedule.yaml) for a complete example.
 
 The system consists of:
 
-1. **Scheduler Engine** - Evaluates rules at 100ms intervals, thread-safe
+1. **Scheduler Engine** - Evaluates rules each minute, thread-safe
 2. **Audio Engine** - Multi-backend playback with profile management
 3. **Astronomical Calculator** - Sunrise/sunset with DST support
 4. **Web UI** - Flask dashboard and REST API
-5. **GPIO Controller** - Raspberry Pi hardware interface (optional)
-6. **FIFO Interface** - Named pipe for external event triggers (optional)
-7. **systemd Services** - Service management and auto-restart
+5. **systemd Services** - Service management and auto-restart
 
 For detailed architecture, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
@@ -366,7 +327,7 @@ GET  /api/history             - Playback history
 
 For complete API reference, see [docs/API.md](./docs/API.md)
 
-## Deployment on Raspberry Pi
+## Deployment
 
 ```bash
 # Copy systemd service files
@@ -401,14 +362,10 @@ ChurchBell/
 │   ├── ARCHITECTURE.md       # System design
 │   ├── INSTALLATION.md       # Deployment guide
 │   ├── API.md               # REST API reference
-│   ├── OPTIMIZATIONS.md     # Performance tuning guide
 │   └── UI_WIREFRAME.md      # Web UI specs
 ├── src/chapel_bells/        # Main application
 │   ├── scheduler.py         # Scheduling engine
 │   ├── audio.py             # Audio playback
-│   ├── astro.py             # Astronomy calculations
-│   ├── gpio.py              # GPIO hardware control
-│   ├── fifo.py              # FIFO event interface
 │   └── web/app.py           # Flask web UI
 ├── config/                  # Configuration examples
 ├── systemd/                 # Service definitions
@@ -428,9 +385,8 @@ ChurchBell/
 ## Requirements
 
 - **Python:** 3.9 or later
-- **OS:** Linux (Ubuntu, Debian, Raspberry Pi OS recommended)
+- **OS:** Linux (Ubuntu, Debian recommended)
 - **Audio:** ALSA or PulseAudio
-- **Optional:** RPi.GPIO (for Raspberry Pi GPIO support)
 
 ## Installation
 
@@ -444,9 +400,6 @@ cd BellSystem
 
 # Install Python dependencies
 pip install -r requirements.txt
-
-# Optional: Install RPi.GPIO for Raspberry Pi
-pip install RPi.GPIO
 ```
 
 ## Security Considerations
@@ -455,7 +408,6 @@ pip install RPi.GPIO
 - No new privileges flag prevents privilege escalation
 - Service is sandboxed with memory and CPU limits
 - Web UI includes basic authentication framework
-- FIFO interface should be protected with proper file permissions
 
 For security hardening, see [docs/INSTALLATION.md#Security](./docs/INSTALLATION.md)
 

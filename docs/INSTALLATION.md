@@ -1,28 +1,77 @@
 # ChapelBells Installation & Deployment Guide
 
 ## Overview
-ChapelBells is a modern, lightweight church bell system designed for Linux/Raspberry Pi. This guide covers setup on Ubuntu Server 22.04 LTS or Raspbian Bullseye+.
+ChapelBells is a modern, lightweight church bell system designed for Linux. This guide covers setup on Raspberry Pi 5 (Bookworm) or Ubuntu Server 22.04+.
 
 ## System Requirements
 
 ### Hardware
-- **Raspberry Pi 4/5** (or x86 Linux machine, Ubuntu Server 20.04+)
+- **Raspberry Pi 5** (recommended) or x86 Linux machine
 - **2GB+ RAM** (4GB+ recommended)
 - **100MB disk space** (+ audio samples)
-- **Audio jack** or USB audio device
+- **Audio output** — one of:
+  - USB sound card / DAC
+  - I2S DAC HAT (HiFiBerry DAC+, IQaudio DAC+, Adafruit I2S)
+  - 3.5mm headphone jack (Pi 5 has no onboard jack — use a HAT or USB)
+- **Amplifier + speaker** connected to audio output
 - **Network connectivity** (for NTP time sync)
+
+### Sound Board / DAC HAT Setup (Raspberry Pi 5)
+
+The Pi 5 has **no onboard 3.5mm audio jack**. You need an external audio device:
+
+#### Option A: USB DAC (easiest)
+```bash
+# Plug in USB sound card, verify it appears
+aplay -l
+# Look for "USB Audio Device" — note the card number
+```
+
+#### Option B: I2S DAC HAT (best quality)
+Supported HATs (all Pi 5 compatible):
+- **HiFiBerry DAC+ / DAC2 Pro** — high-quality stereo DAC
+- **IQaudio DAC+** — Raspberry Pi official
+- **Adafruit I2S Audio Bonnet** — budget option
+
+```bash
+# Edit boot config for your HAT
+sudo nano /boot/firmware/config.txt
+
+# Add ONE of these lines (depending on your HAT):
+dtoverlay=hifiberry-dacplus
+# dtoverlay=iqaudio-dacplus
+# dtoverlay=adafruit-i2s
+
+# Disable onboard audio (if present)
+# dtparam=audio=off
+
+sudo reboot
+
+# Verify DAC appears
+aplay -l
+# Set as default ALSA device
+sudo nano /etc/asound.conf
+```
+
+Example `/etc/asound.conf` for HiFiBerry:
+```
+pcm.!default {
+    type hw
+    card 0
+}
+ctl.!default {
+    type hw
+    card 0
+}
+```
 
 ### Software Prerequisites
 ```bash
-# Ubuntu/Debian
+# Raspberry Pi OS Bookworm / Ubuntu 22.04+
 sudo apt update
 sudo apt install -y python3 python3-pip python3-venv \
-    alsa-utils pulseaudio git ntp \
-    build-essential libopenjp2-7 libtiff5 libjasper1 libharfbuzz0b \
-    libwebp6 libtk8.6 libqtgui4 libqt4-test libhogweed4 libgmp10
-
-# For Raspberry Pi audio support
-sudo apt install -y libasound2-plugins alsa-ucm-conf
+    alsa-utils pipewire pipewire-alsa git \
+    ffmpeg
 ```
 
 ## Installation Steps
@@ -47,7 +96,7 @@ sudo chmod 755 /etc/chapel_bells /var/lib/chapel_bells
 ```bash
 # Clone repository
 cd /opt
-sudo git clone https://github.com/your-org/chapel-bells.git
+sudo git clone https://github.com/HeyJonesR/BellSystem.git chapel-bells
 cd chapel-bells
 
 # Create Python virtual environment
@@ -125,11 +174,17 @@ Ensure audio works as non-root user:
 # Add chapel-bells user to audio group
 sudo usermod -a -G audio chapel-bells
 
-# Test audio on Raspberry Pi
+# Test audio output
 speaker-test -c2 -t sine -f 1000
 
-# Check ALSA configuration
+# If using PipeWire (Pi 5 Bookworm default), verify service
+systemctl --user status pipewire
+
+# Check ALSA device list
 aplay -l
+
+# Test with a WAV file
+aplay /var/lib/chapel_bells/audio/westminster/bell.wav
 ```
 
 ### 7. Configure NTP (Time Sync)

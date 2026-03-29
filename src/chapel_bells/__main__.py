@@ -15,6 +15,7 @@ from datetime import datetime
 
 from chapel_bells.scheduler import BellScheduler, BellEvent, QuietHours
 from chapel_bells.audio import AudioEngine, AudioConfig
+from chapel_bells.astro import AstronomicalCalculator
 
 # Configure logging
 def setup_logging(log_dir: Path = None, log_level: int = logging.INFO):
@@ -98,10 +99,15 @@ class ChapelBells:
         
         # Audio engine
         audio_config = AudioConfig(
-            backend="alsa",  # Try ALSA first, falls back to others
+            backend="auto",  # Auto-detect: pipewire → pulse → alsa → ffplay
             volume=80
         )
         self.audio_engine = AudioEngine(str(self.audio_dir), audio_config)
+        
+        # Astronomical calculator (default NYC, overridable via web UI)
+        self.astro = AstronomicalCalculator(
+            latitude=40.7128, longitude=-74.0060, timezone_offset=-5
+        )
         
         # Register audio callback
         self.scheduler.register_callback(self._on_bell_event)
@@ -128,8 +134,7 @@ class ChapelBells:
                 now = datetime.now()
                 
                 # Only evaluate events at the start of each minute
-                # to prevent duplicate triggers
-                if now.second == 0 and now.minute != self.last_triggered_minute:
+                if now.minute != self.last_triggered_minute:
                     self.last_triggered_minute = now.minute
                     
                     # Find matching events
@@ -139,14 +144,22 @@ class ChapelBells:
                     for event in events:
                         self.scheduler.trigger_event(event)
                 
-                # Sleep 100ms to avoid busy waiting
-                time.sleep(0.1)
+                # Sleep until the next minute boundary instead of busy-waiting
+                now = datetime.now()
+                seconds_to_next_minute = 60 - now.second - now.microsecond / 1_000_000
+                # Wake up 0.1s into the new minute to avoid clock edge issues
+                sleep_time = seconds_to_next_minute + 0.1
+                # Use short sleeps so we can check self.running
+                remaining = sleep_time
+                while remaining > 0 and self.running:
+                    time.sleep(min(remaining, 1.0))
+                    remaining -= 1.0
             
             except KeyboardInterrupt:
                 break
             except Exception as e:
                 logger.error(f"Error in scheduler loop: {e}", exc_info=True)
-                time.sleep(1)  # Brief sleep on error
+                time.sleep(1)
     
     def start(self):
         """Start the ChapelBells system."""
@@ -160,7 +173,7 @@ class ChapelBells:
         # Start scheduler thread
         self.scheduler_thread = threading.Thread(
             target=self._scheduler_loop,
-            daemon=False
+            daemon=True
         )
         self.scheduler_thread.start()
         
@@ -197,6 +210,7 @@ class ChapelBells:
     
     def get_status(self) -> dict:
         """Get system status."""
+        sunrise, sunset = self.astro.get_sunrise_sunset()
         return {
             "running": self.running,
             "current_time": datetime.now().isoformat(),
@@ -205,6 +219,8 @@ class ChapelBells:
                 "start": self.scheduler.quiet_hours.start,
                 "end": self.scheduler.quiet_hours.end
             },
+            "sunrise": sunrise.isoformat() if sunrise else None,
+            "sunset": sunset.isoformat() if sunset else None,
             "audio_profiles": self.audio_engine.get_available_profiles(),
             "scheduled_events": len(self.scheduler.get_events())
         }

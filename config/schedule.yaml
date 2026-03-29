@@ -22,7 +22,7 @@ quiet_hours:
 # Audio system
 audio:
   device: "default"   # ALSA device
-  backend: "alsa"     # Options: alsa, pulse, ffplay
+  backend: "auto"     # Options: auto, pipewire, pulse, alsa, ffplay
   volume: 80          # 0-100
   profile: "westminster"
 
@@ -50,20 +50,20 @@ events:
     description: "Wednesday evening service bell"
 
   - name: "Noon Chime"
-    rule: "* 12 * * *"  # Cron format: every day at noon
+    rule: "0 12 * * *"  # Cron format: every day at noon
     profile: "light"
     tone: "bell"
     description: "Daily noon bell"
 
   - name: "Evening Chime"
-    rule: "* 17 * * *"  # 5 PM
+    rule: "0 17 * * *"  # 5 PM
     profile: "traditional"
     tone: "bell"
     active_after: "17:00"
     active_before: "19:00"  # Only between 5-7 PM
 
   - name: "Easter Special"
-    rule: "* 06 * * 0"  # Every Sunday at 6 AM
+    rule: "0 06 * * 0"  # Every Sunday at 6 AM
     profile: "carillon"
     tone: "bell"
     description: "Early morning Easter service"
