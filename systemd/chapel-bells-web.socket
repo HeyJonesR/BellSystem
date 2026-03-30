@@ -1,5 +1,5 @@
 [Unit]
-Description=ChapelBells Web Admin Interface Socket
+Description=Midway UMC Bells - Web Dashboard Socket
 Before=chapel-bells-web.service
 
 [Socket]

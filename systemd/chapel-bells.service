@@ -1,19 +1,18 @@
 [Unit]
-Description=ChapelBells - Automated Church Bell System
+Description=Midway UMC Bells - Automated Church Bell System
 Documentation=https://github.com/HeyJonesR/BellSystem
 After=network.target time-sync.target sound.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=chapel-bells
-Group=chapel-bells
-WorkingDirectory=/var/lib/chapel_bells
+User=bells
+Group=bells
+WorkingDirectory=/opt/bells
 
-# Python venv or direct executable
-ExecStart=/opt/chapel-bells/venv/bin/python -m chapel_bells
+ExecStart=/opt/bells/venv/bin/python -m chapel_bells --config /opt/bells/config/schedule.json --log-file /var/log/bells/bells.log
 
-# Auto-restart on failure with exponential backoff
+# Auto-restart on failure
 Restart=on-failure
 RestartSec=10
 StartLimitIntervalSec=300
@@ -35,7 +34,6 @@ RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
 SystemCallFilter=@system-service
 SystemCallArchitectures=native
 
@@ -44,7 +42,7 @@ PrivateDevices=no
 SupplementaryGroups=audio
 
 # Writable paths
-ReadWritePaths=/var/lib/chapel_bells /etc/chapel_bells /var/log/chapel_bells
+ReadWritePaths=/opt/bells /var/log/bells
 
 # Resource limits
 MemoryMax=256M
@@ -52,12 +50,10 @@ CPUQuota=50%
 
 # Environment
 Environment="PYTHONUNBUFFERED=1"
-Environment="CHAPEL_BELLS_CONFIG=/etc/chapel_bells"
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=chapel-bells
+SyslogIdentifier=midway-bells
 
-# Process management
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=10

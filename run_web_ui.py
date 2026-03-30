@@ -26,4 +26,4 @@ if __name__ == "__main__":
     print(f"Audio:  {audio_dir}")
     print("\nOpen browser to: http://localhost:5000")
     print("Press Ctrl+C to stop\n")
-    flask_app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
+    flask_app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

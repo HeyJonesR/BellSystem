@@ -1,20 +1,14 @@
 [Unit]
-Description=ChapelBells Web Admin Interface
-After=chapel-bells.service
-Requires=chapel-bells.service
+Description=Midway UMC Bells - Web Dashboard
+After=network.target sound.target
 
 [Service]
 Type=simple
-User=chapel-bells
-Group=chapel-bells
-WorkingDirectory=/var/lib/chapel_bells
+User=bells
+Group=bells
+WorkingDirectory=/opt/bells
 
-# Production: use gunicorn behind the systemd socket
-ExecStart=/opt/chapel-bells/venv/bin/gunicorn \
-    --bind 127.0.0.1:5000 \
-    --workers 2 \
-    --timeout 30 \
-    "chapel_bells.web.app:create_app()"
+ExecStart=/opt/bells/venv/bin/python run_web_ui.py
 
 Restart=on-failure
 RestartSec=10
@@ -37,18 +31,19 @@ RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
 SystemCallFilter=@system-service
 SystemCallArchitectures=native
-PrivateDevices=yes
-CapabilityBoundingSet=
 
-ReadWritePaths=/var/lib/chapel_bells /etc/chapel_bells
+# Allow access to audio devices
+PrivateDevices=no
+SupplementaryGroups=audio
+
+ReadWritePaths=/opt/bells /var/log/bells
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=chapel-bells-web
+SyslogIdentifier=midway-bells-web
 
 # Resource limits
 MemoryMax=128M
