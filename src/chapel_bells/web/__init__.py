@@ -1,9 +1,5 @@
-"""
-ChapelBells Web Administration Interface
+"""ChapelBells web dashboard."""
 
-Flask-based admin dashboard for managing schedules, audio, and system settings.
-"""
+from chapel_bells.web.app import create_web_app
 
-from chapel_bells.web.app import ChapelBellsWeb
-
-__all__ = ["ChapelBellsWeb"]
+__all__ = ["create_web_app"]

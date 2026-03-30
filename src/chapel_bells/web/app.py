@@ -1,288 +1,207 @@
 """
-Flask web administration interface for ChapelBells.
-Provides dashboard, schedule editor, and system settings.
+Flask web dashboard for ChapelBells.
+Provides a simple UI to view the schedule, trigger bells manually,
+and adjust volume.
 """
 
-import json
+import logging
 import os
 import re
-import secrets
-from pathlib import Path
-from datetime import datetime
-from functools import wraps
 
-from flask import Flask, render_template, request, jsonify, session
-from markupsafe import escape
-import logging
+from flask import Flask, jsonify, render_template, request
 
 logger = logging.getLogger(__name__)
 
-# Max items returned from history endpoint
-MAX_HISTORY_LIMIT = 500
 
+def create_web_app(scheduler, player) -> Flask:
+    """
+    Create and return the Flask application.
 
-class ChapelBellsWeb:
-    """Flask application for ChapelBells admin interface."""
-    
-    def __init__(self, app_instance):
-        """
-        Initialize web interface.
-        
-        Args:
-            app_instance: ChapelBells application instance
-        """
-        # Initialize Flask with correct template folder
-        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
-        self.app = Flask(__name__, template_folder=template_dir)
-        self.app.secret_key = os.environ.get("CHAPEL_BELLS_SECRET") or secrets.token_hex(32)
-        self.bell_app = app_instance
-        
-        # Load API tokens from environment (comma-separated)
-        tokens_env = os.environ.get("CHAPEL_BELLS_API_TOKENS", "")
-        self._api_tokens = {t.strip() for t in tokens_env.split(",") if t.strip()}
-        if not self._api_tokens:
-            # Generate a one-time token and log it so the admin can capture it
-            generated = secrets.token_urlsafe(32)
-            self._api_tokens = {generated}
-            logger.warning(
-                "No CHAPEL_BELLS_API_TOKENS set. Generated token: %s  "
-                "Set CHAPEL_BELLS_API_TOKENS env var for persistence.",
-                generated,
-            )
-        
-        # Register security headers
-        self._register_security_headers()
-        
-        # Register routes
-        self._register_routes()
-    
-    def _register_security_headers(self):
-        """Add security headers to all responses."""
-        @self.app.after_request
-        def add_security_headers(response):
-            response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["X-Frame-Options"] = "DENY"
-            response.headers["X-XSS-Protection"] = "1; mode=block"
-            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
-            )
-            response.headers["Cache-Control"] = "no-store"
-            return response
-    
-    def _require_auth(self, f):
-        """Decorator to require Bearer-token authentication."""
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            auth = request.headers.get("Authorization", "")
-            if not auth.startswith("Bearer "):
-                return jsonify({"error": "Unauthorized"}), 401
-            
-            token = auth[7:]
-            if token not in self._api_tokens:
-                logger.warning("Rejected invalid API token from %s", request.remote_addr)
-                return jsonify({"error": "Unauthorized"}), 401
-            
-            return f(*args, **kwargs)
-        
-        return decorated_function
-    
-    def _register_routes(self):
-        """Register Flask routes."""
-        
-        @self.app.route("/")
-        def dashboard():
-            """Main dashboard."""
-            status = self.bell_app.get_status()
-            events = self.bell_app.scheduler.get_events()
-            history = self.bell_app.scheduler.get_playback_history(20)
-            
-            return render_template(
-                "dashboard.html",
-                status=status,
-                events=[e.to_dict() for e in events],
-                history=history
-            )
-        
-        @self.app.route("/api/status")
-        def api_status():
-            """Get system status (JSON)."""
-            return jsonify(self.bell_app.get_status())
-        
-        @self.app.route("/api/events")
-        def api_events():
-            """Get all scheduled events."""
-            events = self.bell_app.scheduler.get_events()
-            return jsonify([e.to_dict() for e in events])
-        
-        @self.app.route("/api/events", methods=["POST"])
-        @self._require_auth
-        def api_events_create():
-            """Create new event."""
-            data = request.get_json()
-            if not data:
-                return jsonify({"error": "JSON body required"}), 400
-            
-            # Validate required fields
-            name = data.get("name", "")
-            rule = data.get("rule", "")
-            if not name or not isinstance(name, str) or len(name) > 100:
-                return jsonify({"error": "name is required (max 100 chars)"}), 400
-            if not re.match(r'^[\w\s\-:*/]+$', name):
-                return jsonify({"error": "name contains invalid characters"}), 400
-            if not rule or not isinstance(rule, str) or len(rule) > 200:
-                return jsonify({"error": "rule is required (max 200 chars)"}), 400
-            
+    Args:
+        scheduler: BellScheduler instance
+        player:    AudioPlayer instance
+    """
+    template_dir = os.path.join(os.path.dirname(__file__), "templates")
+    app = Flask(__name__, template_folder=template_dir)
+
+    # ------------------------------------------------------------------
+    # Security headers
+    # ------------------------------------------------------------------
+    @app.after_request
+    def _security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    # ------------------------------------------------------------------
+    # Pages
+    # ------------------------------------------------------------------
+    @app.route("/")
+    def dashboard():
+        return render_template(
+            "dashboard.html",
+            bells=scheduler.bells,
+            history=scheduler.get_history(20),
+            status=scheduler.get_status(),
+            volume=player.volume,
+        )
+
+    # ------------------------------------------------------------------
+    # API
+    # ------------------------------------------------------------------
+    @app.route("/api/status")
+    def api_status():
+        return jsonify(scheduler.get_status())
+
+    @app.route("/api/schedule")
+    def api_schedule():
+        return jsonify(scheduler.bells)
+
+    @app.route("/api/history")
+    def api_history():
+        limit = min(request.args.get("limit", 50, type=int), 200)
+        return jsonify(scheduler.get_history(limit))
+
+    @app.route("/api/trigger", methods=["POST"])
+    def api_trigger():
+        """Manually play a bell sound."""
+        data = request.get_json(silent=True) or {}
+        sound = data.get("sound", "")
+        if not sound or not isinstance(sound, str):
+            return jsonify({"error": "sound filename required"}), 400
+        # Prevent path traversal
+        if ".." in sound or sound.startswith("/"):
+            return jsonify({"error": "invalid sound filename"}), 400
+        ok = scheduler.trigger_sound(sound)
+        return jsonify({"status": "ok" if ok else "error"})
+
+    @app.route("/api/volume", methods=["PUT"])
+    def api_volume():
+        """Set playback volume (0–100)."""
+        data = request.get_json(silent=True) or {}
+        try:
+            vol = int(data.get("volume", player.volume))
+        except (TypeError, ValueError):
+            return jsonify({"error": "volume must be an integer 0–100"}), 400
+        player.set_volume(vol)
+        return jsonify({"volume": player.volume})
+
+    @app.route("/api/stop", methods=["POST"])
+    def api_stop():
+        """Stop all currently playing sounds."""
+        player.stop()
+        return jsonify({"status": "ok"})
+
+    # ------------------------------------------------------------------
+    # Schedule CRUD
+    # ------------------------------------------------------------------
+
+    def _parse_bell(data):
+        """Validate and return a clean bell dict, or raise ValueError."""
+        time_ = data.get("time", "")
+        sound = data.get("sound", "")
+        if not time_ or not isinstance(time_, str):
+            raise ValueError("time required (HH:MM)")
+        if not re.match(r"^\d{2}:\d{2}$", time_):
+            raise ValueError("time must be HH:MM format")
+        if not sound or not isinstance(sound, str):
+            raise ValueError("sound filename required")
+        if ".." in sound or sound.startswith("/"):
+            raise ValueError("invalid sound filename")
+        bell = {"time": time_, "sound": sound}
+        if "count" in data:
             try:
-                from chapel_bells.scheduler import BellEvent
-                event = BellEvent(
-                    name=name.strip(),
-                    rule=rule.strip(),
-                    profile=data.get("profile", "westminster"),
-                    tone=data.get("tone", "bell"),
-                    active_after=data.get("active_after"),
-                    active_before=data.get("active_before"),
-                    description=data.get("description", "")
-                )
-                self.bell_app.scheduler.add_event(event)
-                
-                return jsonify({
-                    "status": "success",
-                    "event": event.to_dict()
-                }), 201
-            
-            except Exception as e:
-                logger.error(f"Error creating event: {e}")
-                return jsonify({"error": str(e)}), 400
-        
-        @self.app.route("/api/events/<event_name>", methods=["DELETE"])
-        @self._require_auth
-        def api_events_delete(event_name):
-            """Delete event by name."""
+                bell["count"] = max(1, int(data["count"]))
+            except (TypeError, ValueError):
+                raise ValueError("count must be an integer >= 1")
+        if "interval" in data:
             try:
-                self.bell_app.scheduler.delete_event(event_name)
-                return jsonify({"status": "success"}), 200
-            except Exception as e:
-                return jsonify({"error": str(e)}), 400
-        
-        @self.app.route("/api/quiet-hours")
-        def api_quiet_hours():
-            """Get quiet hours configuration."""
-            return jsonify(self.bell_app.scheduler.quiet_hours.to_dict())
-        
-        @self.app.route("/api/quiet-hours", methods=["PUT"])
-        @self._require_auth
-        def api_quiet_hours_update():
-            """Update quiet hours."""
-            data = request.get_json()
-            
-            try:
-                from chapel_bells.scheduler import QuietHours
-                quiet_hours = QuietHours(
-                    enabled=data.get("enabled", True),
-                    start=data.get("start", "21:00"),
-                    end=data.get("end", "07:00"),
-                    override_dates=data.get("override_dates", [])
-                )
-                self.bell_app.scheduler.set_quiet_hours(quiet_hours)
-                
-                return jsonify({"status": "success", "data": quiet_hours.to_dict()})
-            except Exception as e:
-                return jsonify({"error": str(e)}), 400
-        
-        @self.app.route("/api/audio/profiles")
-        def api_audio_profiles():
-            """Get available audio profiles."""
-            return jsonify(self.bell_app.audio_engine.get_available_profiles())
-        
-        @self.app.route("/api/audio/play", methods=["POST"])
-        @self._require_auth
-        def api_audio_play():
-            """Test audio playback."""
-            data = request.get_json()
-            profile = data.get("profile", "westminster")
-            tone = data.get("tone", "bell")
-            
-            success = self.bell_app.audio_engine.play(profile, tone, wait=False)
-            
-            return jsonify({
-                "status": "success" if success else "failed",
-                "message": f"Playing {profile}/{tone}"
-            })
-        
-        @self.app.route("/api/history")
-        def api_history():
-            """Get bell playback history."""
-            limit = min(request.args.get("limit", 100, type=int), MAX_HISTORY_LIMIT)
-            history = self.bell_app.scheduler.get_playback_history(limit)
-            return jsonify(history)
-        
-        @self.app.route("/api/settings")
-        def api_settings():
-            """Get application settings."""
-            return jsonify({
-                "astro": {
-                    "latitude": self.bell_app.astro.latitude,
-                    "longitude": self.bell_app.astro.longitude
-                },
-                "audio": {
-                    "volume": self.bell_app.audio_engine.config.volume,
-                    "backend": self.bell_app.audio_engine.config.backend
+                bell["interval"] = max(0.5, float(data["interval"]))
+            except (TypeError, ValueError):
+                raise ValueError("interval must be a number >= 0.5")
+        return bell
+
+    @app.route("/api/sounds")
+    def api_sounds():
+        """List available sound files under audio_samples/ with friendly labels."""
+        from pathlib import Path
+        import re as _re
+        audio_dir = Path(player.audio_dir)
+
+        def _label(rel_path: str) -> str:
+            """Turn a file path into a readable label."""
+            parts = Path(rel_path).parts
+            stem = Path(rel_path).stem
+            # Strip leading numeric IDs like '458297__author__actual-name'
+            stem = _re.sub(r'^\d+__[^_]+__', '', stem)
+            # Replace hyphens/underscores with spaces and title-case
+            name = stem.replace('-', ' ').replace('_', ' ').title()
+            # Prefix with folder name when name is too generic (e.g. just "Bell")
+            if len(name) <= 6 and len(parts) > 1:
+                folder = parts[-2].replace('-', ' ').replace('_', ' ').title()
+                name = f"{folder} \u2013 {name}"
+            return name
+
+        sounds = sorted(
+            [
+                {
+                    "path": str(f.relative_to(audio_dir)).replace("\\", "/"),
+                    "label": _label(str(f.relative_to(audio_dir))),
                 }
-            })
-        
-        @self.app.route("/api/settings/astro", methods=["PUT"])
-        @self._require_auth
-        def api_settings_astro():
-            """Update astronomical settings."""
-            data = request.get_json()
-            
-            try:
-                from chapel_bells.astro import AstronomicalCalculator
-                self.bell_app.astro = AstronomicalCalculator(
-                    latitude=float(data["latitude"]),
-                    longitude=float(data["longitude"]),
-                    timezone_offset=int(data.get("timezone_offset", -5))
-                )
-                return jsonify({"status": "success"})
-            except Exception as e:
-                return jsonify({"error": str(e)}), 400
-        
-        @self.app.route("/api/settings/audio", methods=["PUT"])
-        @self._require_auth
-        def api_settings_audio():
-            """Update audio settings."""
-            data = request.get_json()
-            
-            if "volume" in data:
-                self.bell_app.audio_engine.set_volume(int(data["volume"]))
-            
-            return jsonify({"status": "success"})
-        
-        @self.app.route("/api/export")
-        def api_export():
-            """Export configuration as JSON."""
-            config_json = self.bell_app.scheduler.to_json()
-            return config_json, 200, {"Content-Type": "application/json"}
-    
-    def run(self, host: str = "127.0.0.1", port: int = 5000, debug: bool = False):
-        """Start the web server (dev only; use gunicorn in production)."""
-        logger.info(f"Starting web server on {host}:{port}")
-        self.app.run(host=host, port=port, debug=debug)
+                for f in audio_dir.rglob("*")
+                if f.suffix.lower() in (".wav", ".mp3") and f.is_file()
+            ],
+            key=lambda s: s["path"],
+        )
+        return jsonify(sounds)
 
+    @app.route("/api/schedule", methods=["POST"])
+    def api_schedule_add():
+        """Add a new bell entry."""
+        data = request.get_json(silent=True) or {}
+        try:
+            bell = _parse_bell(data)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        scheduler.add_bell(bell)
+        return jsonify({"status": "ok", "bells": scheduler.bells}), 201
 
-def create_app():
-    """WSGI application factory for gunicorn / production use."""
-    from chapel_bells import ChapelBells
-    bell_app = ChapelBells()
-    bell_app.start()
-    web = ChapelBellsWeb(bell_app)
-    return web.app
+    @app.route("/api/schedule/<int:idx>", methods=["PUT"])
+    def api_schedule_update(idx):
+        """Update a bell entry by index."""
+        data = request.get_json(silent=True) or {}
+        try:
+            bell = _parse_bell(data)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        try:
+            scheduler.update_bell(idx, bell)
+        except IndexError as e:
+            return jsonify({"error": str(e)}), 404
+        return jsonify({"status": "ok", "bells": scheduler.bells})
 
+    @app.route("/api/schedule/<int:idx>", methods=["DELETE"])
+    def api_schedule_delete(idx):
+        """Delete a bell entry by index."""
+        try:
+            scheduler.delete_bell(idx)
+        except IndexError as e:
+            return jsonify({"error": str(e)}), 404
+        return jsonify({"status": "ok", "bells": scheduler.bells})
 
-if __name__ == "__main__":
-    from chapel_bells import ChapelBells
-    
-    bell_app = ChapelBells()
-    web_app = ChapelBellsWeb(bell_app)
-    web_app.run(host="127.0.0.1", port=5000, debug=False)
+    @app.route("/api/quiet_hours", methods=["PUT"])
+    def api_quiet_hours():
+        """Update quiet hours settings."""
+        data = request.get_json(silent=True) or {}
+        enabled = bool(data.get("enabled", False))
+        # Accept HH:MM or HH:MM:SS (browser time inputs may include seconds)
+        start = str(data.get("start", "22:00"))[:5]
+        end = str(data.get("end", "07:00"))[:5]
+        if not re.match(r"^\d{2}:\d{2}$", start) or not re.match(r"^\d{2}:\d{2}$", end):
+            return jsonify({"error": "start and end must be HH:MM format"}), 400
+        scheduler.update_quiet_hours(enabled, start, end)
+        return jsonify(scheduler.get_status())
+
+    return app

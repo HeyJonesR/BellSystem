@@ -1,267 +1,104 @@
 """
-Main ChapelBells application.
-Orchestrates scheduler, audio engine, and web UI.
+ChapelBells - Church Bell Automation System
+Entry point: python -m chapel_bells [options]
 """
 
+import argparse
 import logging
 import logging.handlers
 import signal
 import sys
 import time
 from pathlib import Path
-from typing import Optional
-import threading
-from datetime import datetime
 
-from chapel_bells.scheduler import BellScheduler, BellEvent, QuietHours
-from chapel_bells.audio import AudioEngine, AudioConfig
-from chapel_bells.astro import AstronomicalCalculator
+from chapel_bells.scheduler import BellScheduler
+from chapel_bells.audio import AudioPlayer
 
-# Configure logging
-def setup_logging(log_dir: Path = None, log_level: int = logging.INFO):
-    """Configure logging to file and console."""
-    if log_dir:
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / "chapel_bells.log"
-    else:
-        log_file = None
-    
-    # Root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
-    console_formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    console_handler.setFormatter(console_formatter)
-    root_logger.addHandler(console_handler)
-    
-    # File handler (if log_dir specified)
+
+def setup_logging(log_file: str = None) -> None:
+    fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    handlers = [logging.StreamHandler(sys.stdout)]
     if log_file:
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10 MB
-            backupCount=5
-        )
-        file_handler.setLevel(log_level)
-        file_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        file_handler.setFormatter(file_formatter)
-        root_logger.addHandler(file_handler)
-    
-    return root_logger
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.handlers.RotatingFileHandler(
+            log_file, maxBytes=5 * 1024 * 1024, backupCount=3
+        ))
+    logging.basicConfig(level=logging.INFO, format=fmt, handlers=handlers)
 
 
-logger = logging.getLogger(__name__)
-
-
-class ChapelBells:
-    """
-    Main application controller.
-    
-    Manages:
-    - Event scheduling
-    - Audio playback
-    - Background scheduler thread
-    """
-    
-    def __init__(self, config_dir: str = None, audio_dir: str = None):
-        """
-        Initialize ChapelBells.
-        
-        Args:
-            config_dir: Directory for config/database files
-            audio_dir: Directory containing audio samples
-        """
-        self.config_dir = Path(config_dir or "/etc/chapel_bells")
-        self.audio_dir = Path(audio_dir or "/var/lib/chapel_bells/audio")
-        self.data_dir = self.config_dir / "data"
-        
-        # Create directories if needed
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.audio_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Initialize components
-        logger.info("Initializing ChapelBells components...")
-        
-        # Scheduler
-        db_path = str(self.data_dir / "chapel_bells.db")
-        config_file = self.config_dir / "schedule.yaml"
-        self.scheduler = BellScheduler(
-            db_path=db_path,
-            config_file=str(config_file) if config_file.exists() else None
-        )
-        
-        # Audio engine
-        audio_config = AudioConfig(
-            backend="auto",  # Auto-detect: pipewire → pulse → alsa → ffplay
-            volume=80
-        )
-        self.audio_engine = AudioEngine(str(self.audio_dir), audio_config)
-        
-        # Astronomical calculator (default NYC, overridable via web UI)
-        self.astro = AstronomicalCalculator(
-            latitude=40.7128, longitude=-74.0060, timezone_offset=-5
-        )
-        
-        # Register audio callback
-        self.scheduler.register_callback(self._on_bell_event)
-        
-        # Control flags
-        self.running = False
-        self.scheduler_thread: Optional[threading.Thread] = None
-        self.last_triggered_minute = -1  # Prevent duplicate triggers
-    
-    def _on_bell_event(self, event: BellEvent):
-        """Callback when bell should ring."""
-        try:
-            logger.info(f"Playing bell: {event.name} ({event.profile}/{event.tone})")
-            self.audio_engine.play(event.profile, event.tone, wait=False)
-        except Exception as e:
-            logger.error(f"Error playing bell: {e}")
-    
-    def _scheduler_loop(self):
-        """Main scheduler loop (runs in background thread)."""
-        logger.info("Starting scheduler loop...")
-        
-        while self.running:
-            try:
-                now = datetime.now()
-                
-                # Only evaluate events at the start of each minute
-                if now.minute != self.last_triggered_minute:
-                    self.last_triggered_minute = now.minute
-                    
-                    # Find matching events
-                    events = self.scheduler.evaluate_events(now)
-                    
-                    # Trigger each matching event
-                    for event in events:
-                        self.scheduler.trigger_event(event)
-                
-                # Sleep until the next minute boundary instead of busy-waiting
-                now = datetime.now()
-                seconds_to_next_minute = 60 - now.second - now.microsecond / 1_000_000
-                # Wake up 0.1s into the new minute to avoid clock edge issues
-                sleep_time = seconds_to_next_minute + 0.1
-                # Use short sleeps so we can check self.running
-                remaining = sleep_time
-                while remaining > 0 and self.running:
-                    time.sleep(min(remaining, 1.0))
-                    remaining -= 1.0
-            
-            except KeyboardInterrupt:
-                break
-            except Exception as e:
-                logger.error(f"Error in scheduler loop: {e}", exc_info=True)
-                time.sleep(1)
-    
-    def start(self):
-        """Start the ChapelBells system."""
-        if self.running:
-            logger.warning("ChapelBells already running")
-            return
-        
-        logger.info("Starting ChapelBells...")
-        self.running = True
-        
-        # Start scheduler thread
-        self.scheduler_thread = threading.Thread(
-            target=self._scheduler_loop,
-            daemon=True
-        )
-        self.scheduler_thread.start()
-        
-        logger.info("ChapelBells started successfully")
-    
-    def stop(self):
-        """Stop the ChapelBells system gracefully."""
-        if not self.running:
-            logger.warning("ChapelBells not running")
-            return
-        
-        logger.info("Stopping ChapelBells...")
-        self.running = False
-        
-        # Stop audio playback
-        self.audio_engine.stop_playback()
-        
-        # Wait for scheduler thread
-        if self.scheduler_thread:
-            self.scheduler_thread.join(timeout=5)
-        
-        logger.info("ChapelBells stopped")
-    
-    def add_event(self, name: str, rule: str, profile: str = "westminster",
-                  tone: str = "bell"):
-        """Convenience method to add event."""
-        event = BellEvent(
-            name=name,
-            rule=rule,
-            profile=profile,
-            tone=tone
-        )
-        self.scheduler.add_event(event)
-    
-    def get_status(self) -> dict:
-        """Get system status."""
-        sunrise, sunset = self.astro.get_sunrise_sunset()
-        return {
-            "running": self.running,
-            "current_time": datetime.now().isoformat(),
-            "quiet_hours_enabled": self.scheduler.quiet_hours.enabled,
-            "quiet_hours": {
-                "start": self.scheduler.quiet_hours.start,
-                "end": self.scheduler.quiet_hours.end
-            },
-            "sunrise": sunrise.isoformat() if sunrise else None,
-            "sunset": sunset.isoformat() if sunset else None,
-            "audio_profiles": self.audio_engine.get_available_profiles(),
-            "scheduled_events": len(self.scheduler.get_events())
-        }
-    
-    def run_foreground(self):
-        """Run in foreground with graceful shutdown handling."""
-        def signal_handler(signum, frame):
-            logger.info(f"Received signal {signum}, shutting down...")
-            self.stop()
-            sys.exit(0)
-        
-        # Register signal handlers
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
-        
-        # Start the system
-        self.start()
-        
-        # Keep running
-        try:
-            while self.running:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("Interrupted by user")
-            self.stop()
-
-
-# Example usage and entry point
-if __name__ == "__main__":
-    # Setup logging
-    setup_logging()
-    
-    # Create application
-    app = ChapelBells(
-        config_dir="/etc/chapel_bells",
-        audio_dir="/var/lib/chapel_bells/audio"
+def main() -> None:
+    parser = argparse.ArgumentParser(description="ChapelBells – Church Bell Automation")
+    parser.add_argument(
+        "--config", default="config/schedule.json",
+        help="Path to JSON or YAML schedule config (default: config/schedule.json)"
     )
-    
-    # Add some example events
-    app.add_event("Hourly Chimes", "every hour", "westminster", "bell")
-    app.add_event("Call to Service", "sunday at 10:00", "carillon", "bell")
-    
-    # Run in foreground
-    app.run_foreground()
+    parser.add_argument(
+        "--log-file", default=None,
+        help="Optional log file path (logs to stdout by default)"
+    )
+    parser.add_argument(
+        "--web", action="store_true",
+        help="Also start the web dashboard"
+    )
+    parser.add_argument(
+        "--port", type=int, default=5000,
+        help="Web dashboard port (default: 5000)"
+    )
+    args = parser.parse_args()
+
+    setup_logging(args.log_file)
+    logger = logging.getLogger(__name__)
+
+    # --- Audio player -------------------------------------------------
+    # audio_dir comes from the config file; create a temporary scheduler
+    # just to peek at the value before full init.
+    import json, yaml as _yaml
+    config_path = Path(args.config)
+    with open(config_path) as f:
+        raw = json.load(f) if config_path.suffix == ".json" else _yaml.safe_load(f)
+    audio_dir = raw.get("audio_dir", "audio_samples")
+    volume = int(raw.get("volume", 80))
+
+    player = AudioPlayer(audio_dir=audio_dir, volume=volume)
+
+    # --- Scheduler ----------------------------------------------------
+    scheduler = BellScheduler(config_path=args.config, play_callback=player.play)
+    scheduler.schedule_all()
+
+    logger.info(
+        "ChapelBells started. %d bell(s) scheduled. Config: %s",
+        len(scheduler.bells), args.config
+    )
+
+    # --- Optional web UI ----------------------------------------------
+    if args.web:
+        from chapel_bells.web.app import create_web_app
+        from threading import Thread
+        flask_app = create_web_app(scheduler, player)
+        t = Thread(
+            target=lambda: flask_app.run(
+                host="127.0.0.1", port=args.port, debug=False, use_reloader=False
+            ),
+            daemon=True,
+            name="web-ui",
+        )
+        t.start()
+        logger.info("Web dashboard: http://127.0.0.1:%d", args.port)
+
+    # --- Signal handling ----------------------------------------------
+    def _shutdown(sig, frame):
+        logger.info("Received signal %s – shutting down.", sig)
+        player.stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+
+    # --- Main loop ----------------------------------------------------
+    while True:
+        scheduler.run_pending()
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()

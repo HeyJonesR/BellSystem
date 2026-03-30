@@ -3,297 +3,538 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChapelBells - Dashboard</title>
+    <title>Midway UMC Bells – Dashboard</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        header {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-        
-        h1 {
             color: #333;
-            margin-bottom: 10px;
-            font-size: 2em;
         }
-        
+
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* ---- header ---- */
+        header {
+            background: #fff;
+            padding: 24px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.1);
+            margin-bottom: 24px;
+        }
+        header h1 { font-size: 1.9em; margin-bottom: 6px; }
+        header p  { color: #666; }
+
         .status-bar {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 18px;
         }
-        
         .status-item {
             background: #f5f5f5;
-            padding: 15px;
+            padding: 14px 16px;
             border-radius: 8px;
             border-left: 4px solid #667eea;
         }
-        
-        .status-label {
-            color: #666;
-            font-size: 0.9em;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-        
-        .status-value {
-            color: #333;
-            font-size: 1.3em;
-            font-weight: 500;
-        }
-        
-        .content {
+        .status-label { color: #888; font-size: .8em; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+        .status-value { font-size: 1.2em; font-weight: 600; }
+
+        /* ---- grid ---- */
+        .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
-        
+
+        /* ---- cards ---- */
         .card {
-            background: white;
-            padding: 25px;
+            background: #fff;
+            padding: 24px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,.08);
         }
-        
         .card h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-            border-bottom: 2px solid #667eea;
+            font-size: 1.2em;
+            margin-bottom: 16px;
             padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
         }
-        
-        .event-list {
-            list-style: none;
-        }
-        
-        .event-item {
+
+        /* ---- schedule list ---- */
+        .bell-list { list-style: none; }
+        .bell-item {
             background: #f9f9f9;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            border-radius: 7px;
             border-left: 4px solid #667eea;
-        }
-        
-        .event-name {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
-        }
-        
-        .event-details {
-            font-size: 0.9em;
-            color: #666;
-        }
-        
-        .button {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.95em;
-            margin-top: 15px;
-            width: 100%;
-            transition: background 0.3s;
-        }
-        
-        .button:hover {
-            background: #764ba2;
-        }
-        
-        .button-secondary {
-            background: #f5f5f5;
-            color: #333;
-            border: 1px solid #ddd;
-        }
-        
-        .button-secondary:hover {
-            background: #e8e8e8;
-        }
-        
-        .button-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             gap: 10px;
         }
-        
-        .time-display {
-            font-size: 1.1em;
-            color: #667eea;
+        .bell-time  { font-size: 1.25em; font-weight: 700; color: #667eea; min-width: 55px; }
+        .bell-sound { font-size: .9em; color: #555; flex: 1; }
+        .bell-count { font-size: .8em; color: #888; }
+
+        /* ---- history ---- */
+        .history-list { list-style: none; max-height: 260px; overflow-y: auto; }
+        .history-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: .88em;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-time { color: #888; white-space: nowrap; }
+
+        /* ---- trigger panel ---- */
+        .trigger-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+        .trigger-form select,
+        .trigger-form input[type=number] {
+            flex: 1;
+            padding: 9px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: .95em;
+        }
+        .btn {
+            padding: 9px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: .95em;
             font-weight: 600;
+            transition: background .2s;
         }
-        
-        .quiet-hours {
-            background: #fff3cd;
-            padding: 12px;
-            border-radius: 5px;
-            border-left: 4px solid #ffc107;
-            margin-top: 15px;
-            font-size: 0.9em;
+        .btn-primary { background: #667eea; color: #fff; }
+        .btn-primary:hover { background: #5a6fd6; }
+        .btn-small { padding: 6px 12px; font-size: .82em; }
+
+        /* ---- volume ---- */
+        .volume-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+        .volume-row input[type=range] { flex: 1; accent-color: #667eea; }
+        .volume-val { font-weight: 700; min-width: 40px; text-align: right; color: #667eea; }
+
+        /* ---- quiet hours badge ---- */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .8em;
+            font-weight: 700;
         }
-        
-        .quiet-hours-enabled {
-            color: #856404;
+        .badge-on  { background: #fff3cd; color: #856404; }
+        .badge-off { background: #e9ecef; color: #666; }
+
+        footer { text-align: center; color: rgba(255,255,255,.7); margin-top: 30px; font-size: .85em; }
+
+        /* ---- bell action buttons ---- */
+        .bell-actions { display: flex; gap: 5px; }
+        .btn-ghost  { background: #f0f0f0; color: #555; }
+        .btn-ghost:hover  { background: #e0e0e0; }
+        .btn-danger { background: #dc3545; color: #fff; }
+        .btn-danger:hover { background: #c82333; }
+
+        /* ---- modal ---- */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.45); z-index: 1000;
+            align-items: center; justify-content: center;
         }
-        
-        .quiet-hours-disabled {
-            color: #666;
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: #fff; border-radius: 12px; padding: 28px 30px;
+            width: min(460px, 94vw); box-shadow: 0 8px 32px rgba(0,0,0,.22);
+            position: relative;
         }
-        
-        .footer {
-            text-align: center;
-            color: white;
-            margin-top: 40px;
-            padding: 20px;
+        .modal h3 { margin-bottom: 18px; font-size: 1.1em; }
+        .form-row { margin-bottom: 14px; }
+        .form-row label {
+            display: block; font-size: .83em; font-weight: 600;
+            color: #555; margin-bottom: 5px;
         }
-        
-        @media (max-width: 768px) {
-            .content {
-                grid-template-columns: 1fr;
-            }
-            
-            .status-bar {
-                grid-template-columns: 1fr;
-            }
-            
-            h1 {
-                font-size: 1.5em;
-            }
+        .form-row input, .form-row select {
+            width: 100%; padding: 9px 12px; border: 1px solid #ddd;
+            border-radius: 6px; font-size: .95em;
+        }
+        .form-row input:focus, .form-row select:focus {
+            outline: none; border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,.15);
+        }
+        .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+        .close-btn {
+            position: absolute; top: 12px; right: 14px;
+            background: none; border: none; font-size: 1.4em;
+            cursor: pointer; color: #aaa; line-height: 1;
+        }
+        .close-btn:hover { color: #555; }
+
+        @media (max-width: 700px) {
+            .grid, .status-bar { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🔔 ChapelBells</h1>
-            <p style="color: #666; margin-bottom: 20px;">Church Bell System - Dashboard</p>
-            
-            <div class="status-bar">
-                <div class="status-item">
-                    <div class="status-label">Status</div>
-                    <div class="status-value">
-                        {% if status.running %}
-                            <span style="color: #27ae60;">● Running</span>
-                        {% else %}
-                            <span style="color: #e74c3c;">● Stopped</span>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="status-item">
-                    <div class="status-label">Current Time</div>
-                    <div class="status-value time-display" id="current-time">
-                        {{ status.current_time }}
-                    </div>
-                </div>
-                
-                <div class="status-item">
-                    <div class="status-label">Scheduled Events</div>
-                    <div class="status-value">{{ status.scheduled_events }}</div>
-                </div>
+<div class="container">
+
+    <header>
+        <h1>🔔 Midway UMC Bells</h1>
+        <p>Church Bell Automation System</p>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label">Current Time</div>
+                <div class="status-value" id="clock">{{ status.current_time }}</div>
             </div>
-        </header>
-        
-        <div class="content">
-            <div class="card">
-                <h2>📅 Scheduled Events</h2>
-                
-                {% if events %}
-                    <ul class="event-list">
-                        {% for event in events %}
-                            <li class="event-item">
-                                <div class="event-name">{{ event.name }}</div>
-                                <div class="event-details">
-                                    <strong>Rule:</strong> {{ event.rule }}<br>
-                                    <strong>Profile:</strong> {{ event.profile }}/{{ event.tone }}
-                                </div>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p style="color: #999; padding: 20px 0;">No events scheduled</p>
-                {% endif %}
-                
-                <button class="button">+ Add Event</button>
+            <div class="status-item">
+                <div class="status-label">Scheduled Bells</div>
+                <div class="status-value">{{ status.scheduled_bells }}</div>
             </div>
-            
-            <div class="card">
-                <h2>⚙️ Settings</h2>
-                
-                <div class="quiet-hours {% if status.quiet_hours_enabled %}quiet-hours-enabled{% else %}quiet-hours-disabled{% endif %}">
-                    <strong>Quiet Hours</strong><br>
+            <div class="status-item">
+                <div class="status-label" style="display:flex;justify-content:space-between;align-items:center">
+                    Quiet Hours
+                    <button class="btn btn-ghost btn-small" onclick="editQuietHours()"
+                            id="quietEditBtn" style="font-size:.7em;padding:2px 7px">✏ Edit</button>
+                </div>
+                <div id="quietHoursDisplay" class="status-value">
                     {% if status.quiet_hours_enabled %}
-                        <span style="color: #856404;">
-                            Enabled: {{ status.quiet_hours.start }} → {{ status.quiet_hours.end }}
-                        </span>
+                        <span class="badge badge-on">{{ status.quiet_hours.start }} – {{ status.quiet_hours.end }}</span>
+                        {% if status.is_quiet_now %}
+                            <span class="badge badge-on" style="margin-left:4px">🔇 Active</span>
+                        {% endif %}
                     {% else %}
-                        <span style="color: #666;">Disabled</span>
+                        <span class="badge badge-off">Disabled</span>
                     {% endif %}
                 </div>
-                
-                <div style="margin-top: 15px;">
-                    <strong style="color: #333;">Audio Profiles</strong>
-                    <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
-                        {% if status.audio_profiles %}
-                            {% for profile in status.audio_profiles %}
-                                <div style="padding: 5px 0;">• {{ profile }}</div>
-                            {% endfor %}
-                        {% else %}
-                            <div style="color: #999;">No profiles available</div>
-                        {% endif %}
+                <div id="quietHoursForm" style="display:none;margin-top:8px">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:.82em;margin-bottom:7px;cursor:pointer;font-weight:600;color:#555">
+                        <input type="checkbox" id="qhEnabled" {% if status.quiet_hours_enabled %}checked{% endif %}>
+                        Enabled
+                    </label>
+                    <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
+                        <input type="time" id="qhStart" value="{{ status.quiet_hours.start }}"
+                               style="flex:1;padding:5px 7px;border:1px solid #ddd;border-radius:5px;font-size:.82em">
+                        <span style="color:#888;font-size:.8em">–</span>
+                        <input type="time" id="qhEnd" value="{{ status.quiet_hours.end }}"
+                               style="flex:1;padding:5px 7px;border:1px solid #ddd;border-radius:5px;font-size:.82em">
                     </div>
-                </div>
-                
-                <div class="button-group">
-                    <button class="button button-secondary">Edit Settings</button>
-                    <button class="button">Test Audio</button>
+                    <div style="display:flex;gap:5px">
+                        <button class="btn btn-primary btn-small" onclick="saveQuietHours()" style="font-size:.78em">Save</button>
+                        <button class="btn btn-ghost btn-small" onclick="cancelQuietHours()" style="font-size:.78em">Cancel</button>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <footer class="footer">
-            <p>ChapelBells v1.0.0 • Automated Church Bell System</p>
-        </footer>
+    </header>
+
+    <div class="grid">
+
+        <!-- Schedule -->
+        <div class="card">
+            <h2 style="display:flex;align-items:center;justify-content:space-between">
+                <span>📅 Bell Schedule</span>
+                <button class="btn btn-primary btn-small" onclick="openAdd()">+ Add Bell</button>
+            </h2>
+            <div id="bellList">
+                <p style="color:#aaa;padding:12px 0">Loading…</p>
+            </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="card">
+            <h2>🎛 Controls</h2>
+
+            <!-- Manual trigger -->
+            <p style="font-size:.9em;color:#555;margin-bottom:10px">Trigger a sound manually:</p>
+            <div class="trigger-form">
+                <select id="triggerSound"><option value="">— loading sounds —</option></select>
+                <button class="btn btn-primary" onclick="triggerSelected()">▶ Play</button>
+                <button class="btn btn-danger" onclick="stopPlayback()">■ Stop</button>
+            </div>
+
+            <hr style="margin:20px 0;border:none;border-top:1px solid #eee">
+
+            <!-- Volume -->
+            <p style="font-size:.9em;color:#555;margin-bottom:8px">Volume:</p>
+            <div class="volume-row">
+                <input type="range" id="volumeSlider" min="0" max="100"
+                       value="{{ volume }}" oninput="updateVolumeLabel(this.value)">
+                <span class="volume-val" id="volumeLabel">{{ volume }}%</span>
+                <button class="btn btn-primary btn-small" onclick="setVolume()">Set</button>
+            </div>
+
+            <hr style="margin:20px 0;border:none;border-top:1px solid #eee">
+
+
+        </div>
+
+        <!-- History (full width) -->
+        <div class="card" style="grid-column:1/-1">
+            <h2>📋 Recent Playback</h2>
+            {% if history %}
+                <ul class="history-list">
+                {% for entry in history %}
+                    <li class="history-item">
+                        <span>🔔 {{ entry.sound }}{% if entry.count and entry.count > 1 %} ×{{ entry.count }}{% endif %}</span>
+                        <span class="history-time">{{ entry.time }}</span>
+                    </li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color:#aaa;padding:8px 0">No bells played yet.</p>
+            {% endif %}
+        </div>
+
+    </div><!-- .grid -->
+
+    <footer>Midway UMC Bells v1.0 &bull; Automated Church Bell System</footer>
+</div><!-- .container -->
+
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeMod()">
+    <div class="modal">
+        <button class="close-btn" onclick="closeMod()">×</button>
+        <h3 id="modalTitle">Add Bell</h3>
+        <div class="form-row">
+            <label>Time</label>
+            <input type="time" id="fTime" required>
+        </div>
+        <div class="form-row">
+            <label>Sound file</label>
+            <select id="fSound"></select>
+        </div>
+        <div class="form-row form-row-2">
+            <div class="form-row" style="margin:0">
+                <label>Count <small style="color:#aaa;font-weight:400">(rings, optional)</small></label>
+                <input type="number" id="fCount" min="1" max="20" placeholder="1">
+            </div>
+            <div class="form-row" style="margin:0">
+                <label>Interval <small style="color:#aaa;font-weight:400">(seconds, optional)</small></label>
+                <input type="number" id="fInterval" min="0.5" max="60" step="0.5" placeholder="2">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeMod()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveBell()">Save</button>
+        </div>
     </div>
-    
-    <script>
-        // Update current time every second
-        function updateTime() {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString();
-            const timeEl = document.getElementById('current-time');
-            if (timeEl) {
-                timeEl.textContent = timeStr;
-            }
+</div>
+
+<script>
+    // ---- state ----
+    let _bells   = {{ bells | tojson }};
+    let _editIdx = -1;
+    let _sounds  = [];
+
+    function esc(s) {
+        return String(s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Live clock
+    function tick() {
+        document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+    }
+    tick();
+    setInterval(tick, 1000);
+
+    function renderBells(bells) {
+        _bells = bells;
+        const el = document.getElementById('bellList');
+        if (!bells.length) {
+            el.innerHTML = '<p style="color:#aaa;padding:12px 0">No bells scheduled.</p>';
+            updateTriggerDropdown();
+            return;
         }
-        
-        updateTime();
-        setInterval(updateTime, 1000);
-    </script>
+        el.innerHTML = '<ul class="bell-list">' + bells.map((b, i) => `
+            <li class="bell-item">
+                <span class="bell-time">${esc(b.time)}</span>
+                <span class="bell-sound" title="${esc(b.sound)}">${esc(soundLabel(b.sound))}</span>
+                ${b.count && b.count > 1 ? `<span class="bell-count">×${b.count}</span>` : ''}
+                <div class="bell-actions">
+                    <button class="btn btn-primary btn-small" onclick="triggerBell('${esc(b.sound)}')">▶</button>
+                    <button class="btn btn-ghost btn-small" onclick="openEdit(${i})">✏</button>
+                    <button class="btn btn-danger btn-small" onclick="deleteBell(${i})">✕</button>
+                </div>
+            </li>`).join('') + '</ul>';
+        updateTriggerDropdown();
+    }
+
+    function updateTriggerDropdown() {
+        const sel = document.getElementById('triggerSound');
+        const cur = sel.value;
+        // Show ALL available sounds when loaded; fall back to scheduled bells only
+        const list = _sounds.length
+            ? _sounds
+            : _bells.map(b => ({path: b.sound, label: soundLabel(b.sound)}));
+        sel.innerHTML = list.map(s =>
+            `<option value="${esc(s.path)}">${esc(s.label)}</option>`).join('');
+        if (cur) sel.value = cur;
+    }
+
+    // ---- sounds list (cached after first fetch) ----
+    // Each entry: {path: "carillon-bells/foo.mp3", label: "Friendly Name"}
+    function loadSounds(cb) {
+        if (_sounds.length) { cb(); return; }
+        fetch('/api/sounds').then(r => r.json()).then(s => { _sounds = s; cb(); })
+            .catch(() => cb());  // gracefully fall back
+    }
+    function soundLabel(path) {
+        const s = _sounds.find(x => x.path === path);
+        return s ? s.label : path;
+    }
+    function populateSoundSelect(current) {
+        const sel = document.getElementById('fSound');
+        const list = _sounds.length ? _sounds : _bells.map(b => ({path: b.sound, label: b.sound}));
+        sel.innerHTML = list.map(s =>
+            `<option value="${esc(s.path)}"${s.path===current?' selected':''}>${esc(s.label)}</option>`).join('');
+        // If current value isn't in the list, prepend it
+        if (current && !list.some(s => s.path === current)) {
+            sel.innerHTML = `<option value="${esc(current)}" selected>${esc(current)}</option>` + sel.innerHTML;
+        }
+    }
+
+    // ---- modal ----
+    function openAdd() {
+        _editIdx = -1;
+        document.getElementById('modalTitle').textContent = 'Add Bell';
+        document.getElementById('fTime').value = '';
+        document.getElementById('fCount').value = '';
+        document.getElementById('fInterval').value = '';
+        loadSounds(() => { populateSoundSelect(''); showMod(); });
+    }
+    function openEdit(idx) {
+        _editIdx = idx;
+        const b = _bells[idx];
+        document.getElementById('modalTitle').textContent = 'Edit Bell';
+        document.getElementById('fTime').value = b.time;
+        document.getElementById('fCount').value = b.count || '';
+        document.getElementById('fInterval').value = b.interval || '';
+        // Sounds may not be loaded yet if user goes straight to edit
+        loadSounds(() => { populateSoundSelect(b.sound); showMod(); });
+    }
+    function showMod() { document.getElementById('modalOverlay').classList.add('open'); }
+    function closeMod() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+    function saveBell() {
+        const time  = document.getElementById('fTime').value;
+        const sound = document.getElementById('fSound').value;
+        const countRaw    = document.getElementById('fCount').value.trim();
+        const intervalRaw = document.getElementById('fInterval').value.trim();
+        if (!time)  { alert('Please set a time.');   return; }
+        if (!sound) { alert('Please choose a sound.'); return; }
+        const body = {time, sound};
+        if (countRaw)    body.count    = parseInt(countRaw);
+        if (intervalRaw) body.interval = parseFloat(intervalRaw);
+        const [method, url] = _editIdx === -1
+            ? ['POST', '/api/schedule']
+            : ['PUT',  `/api/schedule/${_editIdx}`];
+        fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+            .then(r => r.json())
+            .then(d => {
+                if (d.error) { alert('Error: ' + d.error); return; }
+                renderBells(d.bells);
+                closeMod();
+            })
+            .catch(e => alert('Error: ' + e));
+    }
+
+    function deleteBell(idx) {
+        if (!confirm(`Delete bell at ${_bells[idx].time}?`)) return;
+        fetch(`/api/schedule/${idx}`, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(d => { if (d.error) alert('Error: ' + d.error); else renderBells(d.bells); })
+            .catch(e => alert('Error: ' + e));
+    }
+
+    // ---- existing controls ----
+    function triggerBell(sound) {
+        fetch('/api/trigger', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({sound})
+        })
+        .then(r => r.json())
+        .then(d => { if (d.status !== 'ok') alert('Playback failed: ' + JSON.stringify(d)); })
+        .catch(e => alert('Error: ' + e));
+    }
+    function triggerSelected() {
+        const sound = document.getElementById('triggerSound').value;
+        if (sound) triggerBell(sound);
+    }
+    function stopPlayback() {
+        fetch('/api/stop', {method:'POST'})
+            .then(r => r.json())
+            .catch(e => console.error('Stop error:', e));
+    }
+    function updateVolumeLabel(v) {
+        document.getElementById('volumeLabel').textContent = v + '%';
+    }
+    function setVolume() {
+        const v = parseInt(document.getElementById('volumeSlider').value);
+        fetch('/api/volume', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({volume: v})
+        })
+        .then(r => r.json())
+        .then(d => { document.getElementById('volumeLabel').textContent = d.volume + '%'; });
+    }
+
+    // ---- quiet hours ----
+    function editQuietHours() {
+        document.getElementById('quietHoursDisplay').style.display = 'none';
+        document.getElementById('quietEditBtn').style.display = 'none';
+        document.getElementById('quietHoursForm').style.display = 'block';
+    }
+    function cancelQuietHours() {
+        document.getElementById('quietHoursForm').style.display = 'none';
+        document.getElementById('quietHoursDisplay').style.display = '';
+        document.getElementById('quietEditBtn').style.display = '';
+    }
+    function saveQuietHours() {
+        const enabled = document.getElementById('qhEnabled').checked;
+        // Slice to HH:MM in case browser returns HH:MM:SS
+        const start   = document.getElementById('qhStart').value.slice(0, 5);
+        const end     = document.getElementById('qhEnd').value.slice(0, 5);
+        if (!start || !end) { alert('Please set both start and end times.'); return; }
+        fetch('/api/quiet_hours', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled, start, end})
+        })
+        .then(r => {
+            if (!r.ok) return r.text().then(t => { throw new Error(`Server ${r.status} – try restarting the app.`); });
+            return r.json();
+        })
+        .then(d => {
+            if (d.error) { alert('Error: ' + d.error); return; }
+            const qh = d.quiet_hours;
+            const display = document.getElementById('quietHoursDisplay');
+            if (d.quiet_hours_enabled) {
+                display.innerHTML = `<span class="badge badge-on">${esc(qh.start)} – ${esc(qh.end)}</span>`
+                    + (d.is_quiet_now ? ' <span class="badge badge-on">🔇 Active</span>' : '');
+            } else {
+                display.innerHTML = '<span class="badge badge-off">Disabled</span>';
+            }
+            cancelQuietHours();
+        })
+        .catch(e => alert('Error saving quiet hours: ' + e.message));
+    }
+
+    // ---- initialisation ----
+    // Render immediately with raw-path fallback labels.
+    // Re-render once /api/sounds loads: gets friendly labels + all sounds in trigger dropdown.
+    renderBells(_bells);
+    loadSounds(() => { renderBells(_bells); updateTriggerDropdown(); });
+</script>
 </body>
 </html>

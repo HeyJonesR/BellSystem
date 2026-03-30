@@ -1,79 +1,29 @@
 #!/usr/bin/env python3
-"""
-Quick script to run the ChapelBells web UI locally for testing.
-Uses local directories instead of system directories.
-"""
+"""Run the ChapelBells web UI locally."""
 
 import sys
-import os
 from pathlib import Path
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-# Set up local directories for testing
-local_config = Path.home() / ".chapel_bells" / "config"
-local_audio = Path.home() / ".chapel_bells" / "audio"
-local_config.mkdir(parents=True, exist_ok=True)
-local_audio.mkdir(parents=True, exist_ok=True)
+from chapel_bells.audio import AudioPlayer
+from chapel_bells.scheduler import BellScheduler
+from chapel_bells.web.app import create_web_app
 
-# Create sample config if it doesn't exist
-sample_config = local_config / "schedule.yaml"
-if not sample_config.exists():
-    sample_config.write_text("""location:
-  name: Test Church
-  latitude: 40.7128
-  longitude: -74.0060
-  timezone: America/New_York
+config_path = Path(__file__).parent / "config" / "schedule.json"
+audio_dir = Path(__file__).parent / "audio_samples"
 
-events:
-  - name: "Sunday Service"
-    rule: "sunday at 10:00"
-    profile: "westminster"
-    tone: "bell"
-    description: "Sunday morning service bell"
+player = AudioPlayer(audio_dir=str(audio_dir), volume=80)
+scheduler = BellScheduler(config_path=str(config_path), play_callback=player.play)
 
-  - name: "Hourly Chimes"
-    rule: "every hour"
-    profile: "westminster"
-    tone: "bell"
-    description: "Hourly chime"
-    active_after: "07:00"
-    active_before: "21:00"
-
-quiet_hours:
-  enabled: true
-  start: "21:00"
-  end: "07:00"
-""")
-
-from chapel_bells import ChapelBells
-
-# Create ChapelBells instance with local directories
-app = ChapelBells(
-    config_dir=str(local_config),
-    audio_dir=str(local_audio)
-)
-
-# Import after ChapelBells is created
-from chapel_bells.web.app import ChapelBellsWeb
-
-# Create Flask app
-web = ChapelBellsWeb(app)
+flask_app = create_web_app(scheduler, player)
 
 if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("ChapelBells Web UI - Test Mode")
-    print("="*60)
-    print(f"Config: {local_config}")
-    print(f"Audio:  {local_audio}")
-    print("\nStarting Flask development server...")
-    print("Open browser to: http://localhost:5000")
+    print("\n" + "=" * 60)
+    print("Midway UMC Bells Web UI")
+    print("=" * 60)
+    print(f"Config: {config_path}")
+    print(f"Audio:  {audio_dir}")
+    print("\nOpen browser to: http://localhost:5000")
     print("Press Ctrl+C to stop\n")
-    
-    web.app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True,
-        use_reloader=False
-    )
+    flask_app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
