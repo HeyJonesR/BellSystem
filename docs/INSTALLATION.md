@@ -1,7 +1,8 @@
 # ChapelBells Installation & Deployment Guide
 
 ## Overview
-ChapelBells is a modern, lightweight church bell system designed for Linux. This guide covers setup on Raspberry Pi 5 (Bookworm) or Ubuntu Server 22.04+.
+ChapelBells is a lightweight church bell automation system for Linux.
+This guide covers setup on Ubuntu Server 24.04 LTS or Raspberry Pi 5 (Bookworm).
 
 ## System Requirements
 
@@ -66,125 +67,166 @@ ctl.!default {
 ```
 
 ### Software Prerequisites
+
 ```bash
-# Raspberry Pi OS Bookworm / Ubuntu 22.04+
+# Ubuntu 24.04 LTS / Raspberry Pi OS Bookworm
 sudo apt update
 sudo apt install -y python3 python3-pip python3-venv \
-    alsa-utils pipewire pipewire-alsa git \
-    ffmpeg
+    pipewire pipewire-pulse pipewire-alsa alsa-utils \
+    libsdl2-mixer-2.0-0 libsdl2-2.0-0 git
 ```
+
+> **Note**: Ubuntu 24.04 uses PipeWire as the default audio stack.
+> The `pipewire-pulse` package provides PulseAudio compatibility.
+> ChapelBells will try PipeWire → PulseAudio → ALSA automatically.
 
 ## Installation Steps
 
 ### 1. Create System User
 
 ```bash
-# Create dedicated user for chapel-bells
-sudo useradd -r -s /bin/false -d /var/lib/chapel_bells chapel-bells
+# Create dedicated user
+sudo useradd -r -m -d /opt/bells -s /bin/bash bells
+sudo usermod -aG audio bells
 
-# Create necessary directories
-sudo mkdir -p /etc/chapel_bells /var/lib/chapel_bells /var/log/chapel_bells
-sudo mkdir -p /var/lib/chapel_bells/audio
-
-# Set permissions
-sudo chown -R chapel-bells:chapel-bells /etc/chapel_bells /var/lib/chapel_bells /var/log/chapel_bells
-sudo chmod 755 /etc/chapel_bells /var/lib/chapel_bells
+# Create log directory
+sudo mkdir -p /var/log/bells
+sudo chown bells:bells /var/log/bells
 ```
 
 ### 2. Install ChapelBells
 
 ```bash
 # Clone repository
-cd /opt
-sudo git clone https://github.com/HeyJonesR/BellSystem.git chapel-bells
-cd chapel-bells
+sudo -u bells git clone https://github.com/HeyJonesR/BellSystem.git /opt/bells
+cd /opt/bells
 
 # Create Python virtual environment
-sudo python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+sudo -u bells python3 -m venv venv
+sudo -u bells venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Deploy Audio Samples
+### 3. Audio Samples
 
-Create directory structure for bell audio:
+The repo ships with 16 audio files in `config/audio_samples/`:
 
 ```
-/var/lib/chapel_bells/audio/
-├── westminster/
-│   ├── bell.wav
-│   ├── tone_1.wav
-│   └── tone_2.wav
+config/audio_samples/
 ├── carillon/
 │   └── bell.wav
-└── traditional/
+├── carillon-bells/
+│   ├── america-the-beautiful.mp3
+│   ├── ave-maria.mp3
+│   ├── carillon-peal.mp3
+│   ├── god-rest-ye-merry-gentlemen.mp3
+│   ├── hallelujah-chorus.mp3
+│   ├── hark-the-herald-angels-sing.mp3
+│   ├── jesu-joy-of-mans-desiring.mp3
+│   ├── joyful-joyful.mp3
+│   ├── morning-has-broken.mp3
+│   ├── noon-hour-bell-strike.mp3
+│   ├── swinging-english-tuned-bell.mp3
+│   ├── swinging-flemish-bell.mp3
+│   └── westminster-chimes-full.mp3
+├── traditional/
+│   └── bell.wav
+└── westminster/
     └── bell.wav
 ```
 
+To **add your own sounds**, drop `.wav` or `.mp3` files into any subfolder
+under `config/audio_samples/`. They appear in the web UI automatically.
+
 Audio requirements:
-- Format: WAV or FLAC
-- Sample rate: 44.1kHz or 48kHz
+- Format: **WAV** or **MP3**
+- Sample rate: 44.1 kHz or 48 kHz
 - Channels: Mono or Stereo
-- Duration: 2-5 seconds per tone
 
-Generate sample tones:
+### 4. Configure
+
+Edit `config/schedule.json`:
+
 ```bash
-# Use SoX to generate test tones
-sox -n -r 44100 -c 1 -b 16 bell.wav synth 2 sine 440
+sudo -u bells nano /opt/bells/config/schedule.json
 ```
 
-### 4. Configure System
+The config schema:
 
-Copy and customize configuration file:
-
-```bash
-sudo cp config/schedule.yaml /etc/chapel_bells/schedule.yaml
-sudo nano /etc/chapel_bells/schedule.yaml
-
-# Set correct location (latitude/longitude)
-# Configure quiet hours
-# Add your church's service times
+```json
+{
+  "audio_dir": "audio_samples",
+  "volume": 80,
+  "quiet_hours": {
+    "enabled": true,
+    "start": "21:00",
+    "end": "07:00"
+  },
+  "bells": [
+    {
+      "time": "09:00",
+      "sound": "carillon-bells/westminster-chimes-full.mp3"
+    },
+    {
+      "time": "12:00",
+      "sound": "carillon-bells/noon-hour-bell-strike.mp3",
+      "count": 1,
+      "interval": 2.0
+    },
+    {
+      "time": "18:00",
+      "sound": "carillon-bells/joyful-joyful.mp3"
+    }
+  ]
+}
 ```
 
-### 5. Install as systemd Service
+Fields:
+- **`audio_dir`** — path to audio samples (relative to config directory)
+- **`volume`** — master volume 0–100
+- **`quiet_hours`** — suppress all bells between `start` and `end`
+- **`bells[]`** — scheduled events:
+  - `time` — HH:MM (24-hour, required)
+  - `sound` — file path relative to `audio_dir` (required)
+  - `count` — number of rings (default 1)
+  - `interval` — seconds between rings when count > 1 (default 2.0)
+
+You can also use `config/schedule.yaml` — the scheduler auto-detects
+the format by file extension.
+
+### 5. Install systemd Services
 
 ```bash
-# Copy systemd files
-sudo cp systemd/chapel-bells.service /etc/systemd/system/
-sudo cp systemd/chapel-bells-web.service /etc/systemd/system/
-sudo cp systemd/chapel-bells-web.socket /etc/systemd/system/
+# Copy service files
+sudo cp /opt/bells/systemd/chapel-bells-web.service /etc/systemd/system/midway-bells.service
 
 # Reload systemd
 sudo systemctl daemon-reload
 
-# Enable and start service
-sudo systemctl enable chapel-bells.service
-sudo systemctl enable chapel-bells-web.service
-sudo systemctl start chapel-bells.service
-sudo systemctl start chapel-bells-web.service
+# Enable and start
+sudo systemctl enable midway-bells.service
+sudo systemctl start midway-bells.service
 ```
+
+> The web service (`run_web_ui.py`) runs the scheduler AND the dashboard
+> together. For a dedicated Pi this is the simplest setup.
+>
+> If you prefer to run the scheduler headless (no web UI), use
+> `chapel-bells.service` instead, which runs `python -m chapel_bells`.
 
 ### 6. Enable Audio at Boot
 
-Ensure audio works as non-root user:
-
 ```bash
-# Add chapel-bells user to audio group
-sudo usermod -a -G audio chapel-bells
+# Verify the bells user is in the audio group
+groups bells   # should show "audio"
 
 # Test audio output
-speaker-test -c2 -t sine -f 1000
+sudo -u bells aplay /opt/bells/config/audio_samples/westminster/bell.wav
 
-# If using PipeWire (Pi 5 Bookworm default), verify service
+# Check PipeWire is running
 systemctl --user status pipewire
 
 # Check ALSA device list
 aplay -l
-
-# Test with a WAV file
-aplay /var/lib/chapel_bells/audio/westminster/bell.wav
 ```
 
 ### 7. Configure NTP (Time Sync)
@@ -204,50 +246,41 @@ timedatectl timesync-status
 
 ### Editing Schedule
 
-Modify `/etc/chapel_bells/schedule.yaml`:
+Modify `/opt/bells/config/schedule.json` directly or use the web dashboard:
 
-```yaml
-events:
-  - name: "Morning Chime"
-    rule: "every hour"
-    profile: "westminster"
-    active_after: "07:00"
-    active_before: "21:00"
-```
-
-**Rule Format:**
-- `every hour` - Ring at top of each hour
-- `sunday at 10:00` - Ring on Sunday at 10 AM
-- `* 12 * * *` - Cron format (noon every day)
-
-Reload configuration:
 ```bash
-sudo systemctl restart chapel-bells
+sudo -u bells nano /opt/bells/config/schedule.json
+sudo systemctl restart midway-bells
 ```
 
-### Web Admin Interface
-
-Access at: `http://<pi-ip>:5000`
-
-Features:
-- Dashboard with system status
-- Add/remove/edit events
-- Configure quiet hours
-- Test audio playback
-- View playback history
+Or use the web UI at `http://<ip>:5000` — changes are saved to the
+config file automatically, no restart needed.
 
 ### Quiet Hours
 
-Prevent bell ringing during sleeping hours:
+Suppress all bell playback during a time window:
 
-```yaml
-quiet_hours:
-  enabled: true
-  start: "21:00"  # 9 PM
-  end: "07:00"    # 7 AM
-  override_dates:
-    - "2024-12-25"  # Christmas - ring anyway
+```json
+"quiet_hours": {
+  "enabled": true,
+  "start": "21:00",
+  "end": "07:00"
+}
 ```
+
+The window spans midnight when `start` > `end` (e.g., 21:00–07:00).
+
+### Web Dashboard
+
+Access at: `http://<ip>:5000`
+
+Features:
+- View / add / edit / delete scheduled bells
+- Pick any sound from available audio files
+- Manual trigger and stop playback
+- Adjust volume
+- Configure quiet hours
+- View recent playback history
 
 ## Troubleshooting
 
@@ -258,26 +291,29 @@ quiet_hours:
 aplay -l
 
 # Test playback
-aplay -D default /var/lib/chapel_bells/audio/westminster/bell.wav
+sudo -u bells aplay /opt/bells/config/audio_samples/westminster/bell.wav
 
 # Check ALSA mixer
 alsamixer
 
-# Verify permissions
-groups chapel-bells  # Should include 'audio'
+# Verify user is in audio group
+groups bells   # should include 'audio'
+
+# Test pygame initialisation
+sudo -u bells /opt/bells/venv/bin/python -c "import pygame; pygame.mixer.init(); print('OK')"
 ```
 
 ### Service Not Starting
 
 ```bash
 # Check service status
-sudo systemctl status chapel-bells
+sudo systemctl status midway-bells
 
 # View detailed logs
-journalctl -u chapel-bells -n 50 -f
+journalctl -u midway-bells -n 50 --no-pager
 
-# Check Python 3 location
-which python3
+# Check Python errors
+journalctl -u midway-bells -n 30 --no-pager | grep -i error
 ```
 
 ### Time Not Syncing
@@ -286,13 +322,12 @@ which python3
 # Check NTP status
 timedatectl
 
-# Manually sync (if needed)
-sudo systemctl restart systemd-timesyncd
-journalctl -u systemd-timesyncd
-
-# Verify timezone
-timedatectl list-timezones
+# Fix timezone
 sudo timedatectl set-timezone America/New_York
+
+# Restart time sync
+sudo systemctl restart systemd-timesyncd
+timedatectl timesync-status
 ```
 
 ### Bell Ringing at Wrong Time
@@ -301,65 +336,48 @@ sudo timedatectl set-timezone America/New_York
 # Check system time
 date
 
-# Verify configuration is loaded
-cat /etc/chapel_bells/schedule.yaml
+# Verify config
+cat /opt/bells/config/schedule.json
 
-# Check logs for rule matching
-journalctl -u chapel-bells | grep "matches"
+# Check logs for trigger events
+journalctl -u midway-bells | grep -i "ringing\|trigger"
 ```
 
 ## Maintenance
 
 ### Log Rotation
 
-Logs are automatically rotated:
+Logs go to systemd journal by default:
 ```bash
-# View current log
-sudo tail -f /var/log/chapel_bells/chapel_bells.log
+# Live log stream
+journalctl -u midway-bells -f
 
-# Check rotation config
-sudo cat /etc/logrotate.d/chapel-bells
+# Last 100 lines
+journalctl -u midway-bells -n 100 --no-pager
 ```
+
+If `--log-file` is used, logs are auto-rotated at 5 MB (3 backups).
 
 ### Backup Configuration
 
 ```bash
-# Backup settings
-sudo tar czf chapel_bells_backup.tar.gz /etc/chapel_bells
-
-# Restore from backup
-sudo tar xzf chapel_bells_backup.tar.gz -C /
-sudo systemctl restart chapel-bells
+cp /opt/bells/config/schedule.json ~/schedule-backup-$(date +%F).json
 ```
 
 ### Update ChapelBells
 
 ```bash
-cd /opt/chapel-bells
-sudo git pull origin main
-source venv/bin/activate
-pip install -r requirements.txt --upgrade
-sudo systemctl restart chapel-bells
-```
-
-## Performance Optimization
-
-### For Raspberry Pi Zero/1
-
-```bash
-# Disable unnecessary services
-sudo systemctl disable avahi-daemon motion
-sudo systemctl stop avahi-daemon motion
-
-# For minimal Pi, use smaller cron interval
-# Edit /etc/chapel_bells/schedule.yaml
+cd /opt/bells
+sudo -u bells git pull
+sudo -u bells venv/bin/pip install -r requirements.txt
+sudo systemctl restart midway-bells
 ```
 
 ### Memory Usage
 
 ```bash
 # Monitor resource usage
-ps aux | grep chapel-bells
+ps aux | grep bells
 free -h
 top -p $(pgrep -f chapel_bells)
 ```
@@ -368,198 +386,75 @@ top -p $(pgrep -f chapel_bells)
 
 ### Network Access
 
-- Web UI accessible only from local network by default
-- Change default secret key in systemd service
+- Web UI listens on all interfaces by default (port 5000)
 - Use firewall rules to restrict access:
 
 ```bash
-sudo ufw allow 5000/tcp from 192.168.1.0/24  # Allow only local subnet
+sudo ufw allow 5000/tcp from 192.168.1.0/24   # local subnet only
 ```
 
 ### User Permissions
 
 ```bash
-# Verify chapel-bells user is non-privileged
-id chapel-bells
+# Verify bells user is non-privileged
+id bells
 
 # Check file permissions
-ls -la /etc/chapel_bells
+ls -la /opt/bells/config/
 ```
 
 ### Logs & Audit
 
 ```bash
-# Review recent activities
-journalctl -u chapel-bells -S "1 day ago"
-
-# Check failed playbacks
-grep "error\|failed" /var/log/chapel_bells/chapel_bells.log
+# Review recent activity
+journalctl -u midway-bells -S "1 day ago"
 ```
 
 ## Systemd Service Commands
 
 ```bash
 # Start/stop
-sudo systemctl start chapel-bells
-sudo systemctl stop chapel-bells
-sudo systemctl restart chapel-bells
+sudo systemctl start midway-bells
+sudo systemctl stop midway-bells
+sudo systemctl restart midway-bells
 
 # Check status
-sudo systemctl status chapel-bells
+sudo systemctl status midway-bells
 
 # View logs
-journalctl -u chapel-bells -n 100
-journalctl -u chapel-bells -f  # Follow logs
+journalctl -u midway-bells -n 100
+journalctl -u midway-bells -f   # follow
 
 # Enable/disable auto-start
-sudo systemctl enable chapel-bells
-sudo systemctl disable chapel-bells
-
-# Check auto-start status
-sudo systemctl is-enabled chapel-bells
+sudo systemctl enable midway-bells
+sudo systemctl disable midway-bells
 ```
 
-## Network Deployment
+## Adding New Audio Files
 
-### SSH Admin Access (Optional)
-
-```bash
-# Connect to Pi remotely
-ssh chapel-bells@<pi-ip>
-
-# Forward web UI port
-ssh -L 5000:localhost:5000 pi@<pi-ip>
-# Then access: http://localhost:5000
-```
-
-### Web UI Access from Another Computer
-
-```bash
-# On Pi: ensure service is running
-sudo systemctl status chapel-bells-web
-
-# From computer:
-# http://<pi-ip-address>:5000
-```
-
-## Testing
-
-### Test Bell Playback
-
-```bash
-# Manual test
-python3 -c "
-from chapel_bells.audio import AudioEngine, AudioConfig
-engine = AudioEngine('/var/lib/chapel_bells/audio')
-engine.play('westminster', 'bell', wait=True)
-"
-
-# Via web UI
-# Go to Dashboard > Test Audio
-```
-
-### Test Schedule Rules
-
-```bash
-# Check if events match current time
-python3 -c "
-from chapel_bells.scheduler import BellScheduler
-scheduler = BellScheduler()
-scheduler.load_config('/etc/chapel_bells/schedule.yaml')
-events = scheduler.evaluate_events()
-print(f'Matching events: {[e.name for e in events]}')
-"
-```
-
-## Advanced Configuration
-
-### Custom Audio Profiles
-
-Create new audio profile:
-
-```bash
-mkdir /var/lib/chapel_bells/audio/my_custom_profile
-# Add *.wav files
-```
-
-Update schedule.yaml:
-```yaml
-events:
-  - name: "Custom Bell"
-    profile: "my_custom_profile"
-    tone: "your_audio_file"  # .wav extension omitted
-```
-
-### Multiple Schedules
-
-Create separate config files:
-```bash
-cp config/schedule.yaml /etc/chapel_bells/schedule_weekday.yaml
-cp config/schedule.yaml /etc/chapel_bells/schedule_weekend.yaml
-```
-
-Load via environment variable:
-```bash
-CHAPEL_BELLS_CONFIG=/etc/chapel_bells/schedule_weekday.yaml systemctl restart chapel-bells
-```
-
-## Support & Debugging
-
-### Enable Debug Logging
-
-Edit systemd service:
-```bash
-sudo systemctl edit chapel-bells
-
-# Add:
-Environment="PYTHON_LOG_LEVEL=DEBUG"
-```
-
-Restart and check logs:
-```bash
-sudo systemctl restart chapel-bells
-journalctl -u chapel-bells -f
-```
-
-### Report Issues
-
-Collect diagnostic info:
-```bash
-# System info
-uname -a
-python3 --version
-
-# Service logs
-journalctl -u chapel-bells -n 200 > logs.txt
-
-# Audio devices
-aplay -l
-
-# Configuration
-cat /etc/chapel_bells/schedule.yaml
-```
+Drop any `.wav` or `.mp3` file into `config/audio_samples/` (or a
+subfolder). The web UI discovers new files automatically via a directory
+scan — no code changes or restart required.
 
 ## Uninstallation
 
 ```bash
 # Stop service
-sudo systemctl stop chapel-bells chapel-bells-web
+sudo systemctl stop midway-bells
+sudo systemctl disable midway-bells
 
 # Remove systemd files
-sudo rm /etc/systemd/system/chapel-bells*.service /etc/systemd/system/chapel-bells*.socket
+sudo rm /etc/systemd/system/midway-bells.service
 sudo systemctl daemon-reload
 
 # Remove application files
-sudo rm -rf /opt/chapel-bells
-
-# Remove configuration & data
-sudo rm -rf /etc/chapel_bells /var/lib/chapel_bells
+sudo rm -rf /opt/bells
 
 # Remove user
-sudo userdel chapel-bells
+sudo userdel -r bells
 
 # Remove logs
-sudo rm -rf /var/log/chapel_bells
+sudo rm -rf /var/log/bells
 ```
 
 ---

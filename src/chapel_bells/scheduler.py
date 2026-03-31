@@ -5,7 +5,9 @@ Uses the 'schedule' library for simple, reliable time-based scheduling.
 
 import json
 import logging
+import threading
 import time as _time
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
@@ -26,7 +28,10 @@ class BellScheduler:
         self.config_path = Path(config_path)
         self.play_callback = play_callback
         self.config: Dict = {}
-        self.history: List[Dict] = []   # recent playback log (in-memory)
+        self.history: deque = deque(maxlen=100)
+        self._history_lock = threading.Lock()
+        self._scheduler = schedule.Scheduler()
+        self._quiet_cache: Optional[tuple] = None  # (start_time, end_time)
         self._load_config()
 
     # ------------------------------------------------------------------
@@ -39,11 +44,23 @@ class BellScheduler:
                 self.config = json.load(f)
             else:
                 self.config = yaml.safe_load(f)
+        self._cache_quiet_hours()
 
     def reload_config(self) -> None:
         """Re-read config file and reschedule all events."""
         self._load_config()
         self.schedule_all()
+
+    def _cache_quiet_hours(self) -> None:
+        """Pre-parse quiet hours times so is_quiet_now() avoids per-call strptime."""
+        qh = self.quiet_hours
+        if qh.get("enabled") and "start" in qh and "end" in qh:
+            self._quiet_cache = (
+                datetime.strptime(qh["start"], "%H:%M").time(),
+                datetime.strptime(qh["end"], "%H:%M").time(),
+            )
+        else:
+            self._quiet_cache = None
 
     # ------------------------------------------------------------------
     # Properties
@@ -59,7 +76,11 @@ class BellScheduler:
 
     @property
     def audio_dir(self) -> str:
-        return self.config.get("audio_dir", "audio_samples")
+        raw = self.config.get("audio_dir", "audio_samples")
+        p = Path(raw)
+        if not p.is_absolute():
+            p = self.config_path.parent / p
+        return str(p.resolve())
 
     @property
     def quiet_hours(self) -> Dict:
@@ -71,11 +92,10 @@ class BellScheduler:
 
     def is_quiet_now(self) -> bool:
         qh = self.quiet_hours
-        if not qh.get("enabled", False):
+        if not qh.get("enabled", False) or self._quiet_cache is None:
             return False
+        start, end = self._quiet_cache
         now = datetime.now().time()
-        start = datetime.strptime(qh["start"], "%H:%M").time()
-        end = datetime.strptime(qh["end"], "%H:%M").time()
         if start > end:          # spans midnight (e.g. 21:00 → 07:00)
             return now >= start or now <= end
         return start <= now <= end
@@ -86,25 +106,35 @@ class BellScheduler:
 
     def schedule_all(self) -> None:
         """Clear and rebuild the full schedule from config."""
-        schedule.clear()
+        self._scheduler.clear()
         for bell in self.bells:
             t = bell.get("time", "")
             if not t:
                 logger.warning("Bell entry missing 'time', skipping: %s", bell)
                 continue
-            # schedule.every().day.at() needs HH:MM format
-            schedule.every().day.at(t).do(self._trigger, bell=bell)
+            self._scheduler.every().day.at(t).do(self._trigger, bell=bell)
             logger.info("Scheduled: %s at %s", bell.get("sound", "?"), t)
 
     def run_pending(self) -> None:
         """Run any jobs whose time has come.  Call this every second."""
-        schedule.run_pending()
+        self._scheduler.run_pending()
 
     # ------------------------------------------------------------------
     # Playback
     # ------------------------------------------------------------------
 
     def _trigger(self, bell: Dict) -> None:
+        """Fire bell sequence in a background thread so the scheduler loop is not blocked."""
+        t = threading.Thread(
+            target=self._ring_sequence,
+            args=(bell,),
+            daemon=True,
+            name=f"bell-{bell.get('time', 'manual')}",
+        )
+        t.start()
+
+    def _ring_sequence(self, bell: Dict) -> None:
+        """Play a multi-ring sequence (runs in a daemon thread)."""
         if self.is_quiet_now():
             logger.info("Bell suppressed (quiet hours): %s", bell.get("sound"))
             return
@@ -115,18 +145,22 @@ class BellScheduler:
 
         logger.info("Ringing: %s × %d", sound, count)
 
-        for i in range(count):
-            self.play_callback(sound)
-            if i < count - 1:
-                _time.sleep(interval)
+        try:
+            for i in range(count):
+                self.play_callback(sound)
+                if i < count - 1:
+                    _time.sleep(interval)
+        except Exception:
+            logger.exception("Error during bell sequence for %s", sound)
+            return
 
         entry = {
             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "sound": sound,
             "count": count,
         }
-        self.history.insert(0, entry)
-        self.history = self.history[:100]   # keep last 100
+        with self._history_lock:
+            self.history.appendleft(entry)
 
     def trigger_sound(self, sound: str) -> bool:
         """Manually trigger a sound by filename (used by web UI)."""
@@ -140,7 +174,8 @@ class BellScheduler:
     # ------------------------------------------------------------------
 
     def get_history(self, limit: int = 20) -> List[Dict]:
-        return self.history[:limit]
+        with self._history_lock:
+            return list(self.history)[:limit]
 
     def get_status(self) -> Dict:
         return {
@@ -159,9 +194,13 @@ class BellScheduler:
     # ------------------------------------------------------------------
 
     def _save_config(self) -> None:
-        """Persist the current config dict back to the JSON file."""
+        """Persist the current config dict back to the config file, preserving format."""
         with open(self.config_path, "w") as f:
-            json.dump(self.config, f, indent=2)
+            if self.config_path.suffix in (".yaml", ".yml"):
+                yaml.dump(self.config, f, default_flow_style=False,
+                          allow_unicode=True, sort_keys=False)
+            else:
+                json.dump(self.config, f, indent=2)
         logger.info("Config saved: %s", self.config_path)
 
     def add_bell(self, bell: Dict) -> None:
@@ -185,6 +224,7 @@ class BellScheduler:
         qh["enabled"] = enabled
         qh["start"] = start
         qh["end"] = end
+        self._cache_quiet_hours()
         self._save_config()
         logger.info("Quiet hours updated: enabled=%s %s–%s", enabled, start, end)
 

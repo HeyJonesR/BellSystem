@@ -283,7 +283,7 @@
                 <ul class="history-list">
                 {% for entry in history %}
                     <li class="history-item">
-                        <span>🔔 {{ entry.sound }}{% if entry.count and entry.count > 1 %} ×{{ entry.count }}{% endif %}</span>
+                        <span title="{{ entry.sound }}">🔔 {{ entry.sound | sound_label }}{% if entry.count and entry.count > 1 %} ×{{ entry.count }}{% endif %}</span>
                         <span class="history-time">{{ entry.time }}</span>
                     </li>
                 {% endfor %}

@@ -1,6 +1,7 @@
 [Unit]
 Description=Midway UMC Bells - Web Dashboard
-After=network.target sound.target
+After=network.target pipewire.service pipewire-pulse.service
+Wants=pipewire.service pipewire-pulse.service
 
 [Service]
 Type=simple
@@ -39,6 +40,10 @@ PrivateDevices=no
 SupplementaryGroups=audio
 
 ReadWritePaths=/opt/bells /var/log/bells
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="SDL_AUDIODRIVER=pipewire"
 
 # Logging
 StandardOutput=journal

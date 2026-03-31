@@ -1,0 +1,5 @@
+# Development / test dependencies (not installed on the server)
+-r requirements.txt
+
+pytest>=7.0,<9
+pytest-cov>=4.0,<6

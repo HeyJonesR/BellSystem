@@ -7,10 +7,28 @@ and adjust volume.
 import logging
 import os
 import re
+from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
 logger = logging.getLogger(__name__)
+
+
+def _sound_label(rel_path: str) -> str:
+    """Turn a sound file path into a human-readable label.
+
+    e.g. 'carillon-bells/westminster-chimes-full.mp3' -> 'Westminster Chimes Full'
+         'westminster/bell.wav'                       -> 'Westminster – Bell'
+    """
+    parts = Path(rel_path).parts
+    stem = Path(rel_path).stem
+    # Replace hyphens/underscores with spaces and title-case
+    name = stem.replace('-', ' ').replace('_', ' ').title()
+    # Prefix with folder name when the bare name is too short to be meaningful
+    if len(name) <= 6 and len(parts) > 1:
+        folder = parts[-2].replace('-', ' ').replace('_', ' ').title()
+        name = f"{folder} \u2013 {name}"
+    return name
 
 
 def create_web_app(scheduler, player) -> Flask:
@@ -23,6 +41,7 @@ def create_web_app(scheduler, player) -> Flask:
     """
     template_dir = os.path.join(os.path.dirname(__file__), "templates")
     app = Flask(__name__, template_folder=template_dir)
+    app.jinja_env.filters['sound_label'] = _sound_label
 
     # ------------------------------------------------------------------
     # Security headers
@@ -126,29 +145,12 @@ def create_web_app(scheduler, player) -> Flask:
     @app.route("/api/sounds")
     def api_sounds():
         """List available sound files under audio_samples/ with friendly labels."""
-        from pathlib import Path
-        import re as _re
         audio_dir = Path(player.audio_dir)
-
-        def _label(rel_path: str) -> str:
-            """Turn a file path into a readable label."""
-            parts = Path(rel_path).parts
-            stem = Path(rel_path).stem
-            # Strip leading numeric IDs like '458297__author__actual-name'
-            stem = _re.sub(r'^\d+__[^_]+__', '', stem)
-            # Replace hyphens/underscores with spaces and title-case
-            name = stem.replace('-', ' ').replace('_', ' ').title()
-            # Prefix with folder name when name is too generic (e.g. just "Bell")
-            if len(name) <= 6 and len(parts) > 1:
-                folder = parts[-2].replace('-', ' ').replace('_', ' ').title()
-                name = f"{folder} \u2013 {name}"
-            return name
-
         sounds = sorted(
             [
                 {
                     "path": str(f.relative_to(audio_dir)).replace("\\", "/"),
-                    "label": _label(str(f.relative_to(audio_dir))),
+                    "label": _sound_label(str(f.relative_to(audio_dir))),
                 }
                 for f in audio_dir.rglob("*")
                 if f.suffix.lower() in (".wav", ".mp3") and f.is_file()

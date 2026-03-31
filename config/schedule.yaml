@@ -1,104 +1,97 @@
 # ChapelBells Configuration
-# Location: /etc/chapel_bells/schedule.yaml
+# Location: /opt/bells/config/schedule.yaml
+#
+# Schema used by scheduler.py:
+#   audio_dir   – path to audio samples directory (relative to WorkingDirectory)
+#   volume      – master volume 0-100
+#   quiet_hours – suppress all bells between start and end (spans midnight if start > end)
+#   bells[]     – list of scheduled bell events:
+#                   time     HH:MM (24-hour, required)
+#                   sound    path relative to audio_dir (required)
+#                   count    number of rings (default 1)
+#                   interval seconds between rings when count > 1 (default 2.0)
 
-# Astronomical settings
-location:
-  latitude: 40.7128
-  longitude: -74.0060
-  timezone_offset: -5  # EST
-  timezone_name: "America/New_York"
+audio_dir: "audio_samples"
+volume: 80
 
-# Quiet hours configuration
 quiet_hours:
   enabled: true
-  start: "21:00"      # 9 PM - stop ringing
-  end: "07:00"        # 7 AM - start ringing again
-  # Dates to exclude from quiet hours (e.g., special services)
-  override_dates:
-    - "2024-12-25"    # Christmas
-    - "2024-04-20"    # Easter Sunday
-    - "2024-01-01"    # New Year's
+  start: "21:00"   # 9 PM – silence begins
+  end: "07:00"     # 7 AM – silence ends (spans midnight)
 
-# Audio system
-audio:
-  device: "default"   # ALSA device
-  backend: "auto"     # Options: auto, pipewire, pulse, alsa, ffplay
-  volume: 80          # 0-100
-  profile: "westminster"
+bells:
+  # ── Morning bells ────────────────────────────────────────────────
+  - time: "07:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-# Scheduled bell events
-events:
-  - name: "Hourly Chimes"
-    rule: "every hour"  # Rings at :00 of each hour
-    profile: "westminster"
-    tone: "bell"
-    description: "Traditional Westminster quarters every hour"
-    active_after: "07:00"   # Don't ring before 7 AM
-    active_before: "21:00"  # Don't ring after 9 PM
+  - time: "08:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-  - name: "Call to Service - Sunday"
-    rule: "sunday at 10:00"
-    profile: "carillon"
-    tone: "bell"
-    description: "Sunday morning service bell"
-    repeat_interval: 0  # One-time
+  - time: "09:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-  - name: "Call to Service - Wednesday"
-    rule: "wednesday at 19:00"
-    profile: "carillon"
-    tone: "bell"
-    description: "Wednesday evening service bell"
+  # 10 AM – full Westminster chimes peal (call to service)
+  - time: "10:00"
+    sound: "carillon-bells/westminster-chimes-full.mp3"
+    count: 1
+    interval: 2.0
 
-  - name: "Noon Chime"
-    rule: "0 12 * * *"  # Cron format: every day at noon
-    profile: "light"
-    tone: "bell"
-    description: "Daily noon bell"
+  - time: "11:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-  - name: "Evening Chime"
-    rule: "0 17 * * *"  # 5 PM
-    profile: "traditional"
-    tone: "bell"
-    active_after: "17:00"
-    active_before: "19:00"  # Only between 5-7 PM
+  # ── Noon carillon hour strike ────────────────────────────────────
+  - time: "12:00"
+    sound: "carillon-bells/noon-hour-bell-strike.mp3"
+    count: 1
+    interval: 2.0
 
-  - name: "Easter Special"
-    rule: "0 06 * * 0"  # Every Sunday at 6 AM
-    profile: "carillon"
-    tone: "bell"
-    description: "Early morning Easter service"
-    active_after: "06:00"
+  # ── Afternoon bells ──────────────────────────────────────────────
+  - time: "13:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-# Time synchronization
-ntp:
-  enabled: true
-  servers:
-    - "0.ubuntu.pool.ntp.org"
-    - "1.ubuntu.pool.ntp.org"
+  - time: "14:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-# Logging
-logging:
-  level: "INFO"
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: "/var/log/chapel_bells/chapel_bells.log"
-  rotation: "daily"
-  retention_days: 30
+  - time: "15:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-# Web admin interface
-web:
-  enabled: true
-  host: "0.0.0.0"
-  port: 5000
-  debug: false
-  # Simple token-based auth
-  secret_key: "change-this-in-production"
+  - time: "16:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
 
-# Advanced: custom bell sequences
-sequences:
-  westminster:
-    description: "Westminster quarter chimes"
-    timing:
-      quarter_1: 2    # 2 notes
-      quarter_2: 4    # 4 notes
-      quarter_3: 6    # 6 notes
-      hour: "varies"  # Hour strokes = hour number
+  - time: "17:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
+
+  # 6 PM – evening carillon peal
+  - time: "18:00"
+    sound: "carillon-bells/carillon-peal.mp3"
+    count: 1
+    interval: 2.0
+
+  - time: "19:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
+
+  - time: "20:00"
+    sound: "westminster/bell.wav"
+    count: 1
+    interval: 2.0
+

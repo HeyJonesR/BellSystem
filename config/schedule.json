@@ -2,17 +2,17 @@
   "bells": [
     {
       "time": "09:00",
-      "sound": "carillon-bells/458302__theblockofsound235__westminster-chimes-full.mp3"
+      "sound": "carillon-bells/westminster-chimes-full.mp3"
     },
     {
       "time": "12:00",
-      "sound": "carillon-bells/458297__theblockofsound235__12-noon-hour-bell-strike.mp3",
+      "sound": "carillon-bells/noon-hour-bell-strike.mp3",
       "count": 1,
       "interval": 2.0
     },
     {
       "time": "18:00",
-      "sound": "carillon-bells/458301__theblockofsound235__joyful-joyful.mp3"
+      "sound": "carillon-bells/joyful-joyful.mp3"
     }
   ],
   "audio_dir": "audio_samples",

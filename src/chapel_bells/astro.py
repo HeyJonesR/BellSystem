@@ -5,7 +5,7 @@ Used to determine daylight awareness for quiet hours logic.
 
 import math
 from datetime import datetime, timedelta
-from typing import Tuple
+from typing import Optional, Tuple
 
 class AstronomicalCalculator:
     """
@@ -41,31 +41,29 @@ class AstronomicalCalculator:
     def _equation_of_time(self, jd: float) -> float:
         """Calculate equation of time in minutes."""
         t = (jd - self.J2000) / 36525
-        epsilon = 23.439291 - 0.0130042 * t
         l0 = 280.46646 + 36000.76983 * t + 0.0003032 * (t ** 2)
-        e = 0.016708634 - 0.000042037 * t - 0.0000001267 * (t ** 2)
-        
+
         # Simplified GMST calculation
         gmst = 280.46061837 + (360.98564724 * (jd - self.J2000))
-        
-        epsilon_rad = math.radians(epsilon)
-        eq = (l0 - 0.0057183 - gmst + 
+
+        eq = (l0 - 0.0057183 - gmst +
               15 * self.timezone_offset) % 360
-        
+
         if eq > 180:
             eq = eq - 360
-        
+
         return eq * 4  # Convert to minutes
     
-    def get_sunrise_sunset(self, date: datetime = None) -> Tuple[datetime, datetime]:
+    def get_sunrise_sunset(
+        self, date: datetime = None
+    ) -> Tuple[Optional[datetime], Optional[datetime]]:
         """
         Calculate sunrise and sunset for given date.
-        
-        Args:
-            date: datetime object (defaults to today)
-        
+
         Returns:
-            Tuple of (sunrise, sunset) as datetime objects
+            (sunrise, sunset) as datetime objects.
+            (datetime.min, None) if polar day (midnight sun – no sunset).
+            (None, datetime.max) if polar night (sun never rises).
         """
         if date is None:
             date = datetime.now()
@@ -98,11 +96,11 @@ class AstronomicalCalculator:
         
         numerator = -math.tan(lat_rad) * math.tan(dec_rad)
         if numerator < -1:
-            # Polar night (no sunrise)
-            return None, None
+            # Polar day (midnight sun – sun never sets)
+            return datetime.min, None
         elif numerator > 1:
-            # Polar day (no sunset)
-            return None, None
+            # Polar night (sun never rises)
+            return None, datetime.max
         
         h = math.acos(numerator)
         h_degrees = math.degrees(h)
@@ -117,7 +115,7 @@ class AstronomicalCalculator:
         sunrise_hour = solar_noon - h_degrees / 15
         sunset_hour = solar_noon + h_degrees / 15
         
-        # Clamp hours to valid range (0-23)
+        # Clamp hours to valid range via modulo
         sunrise_hour = sunrise_hour % 24
         sunset_hour = sunset_hour % 24
         
@@ -137,13 +135,14 @@ class AstronomicalCalculator:
         """Check if current time is daytime."""
         if dt is None:
             dt = datetime.now()
-        
+
         sunrise, sunset = self.get_sunrise_sunset(dt)
-        
-        if sunrise is None or sunset is None:
-            # Handle polar regions - assume daytime if no sunset
-            return True
-        
+
+        if sunrise is None:
+            return False   # polar night – sun never rises
+        if sunset is None:
+            return True    # polar day – sun never sets
+
         return sunrise <= dt <= sunset
 
 
@@ -161,28 +160,47 @@ try:
             self.timezone_offset = timezone_offset
         
         def get_sunrise_sunset(self, date: datetime = None):
-            """Get sunrise/sunset using PyEphem."""
+            """
+            Get today's sunrise/sunset using PyEphem.
+
+            Anchors to local noon so previous_rising() returns today's sunrise
+            (not yesterday's if called after dawn) and next_setting() returns
+            today's sunset.
+            Returns (datetime.min, None) for polar day, (None, datetime.max)
+            for polar night, matching AstronomicalCalculator sentinels.
+            """
             if date is None:
                 date = datetime.now()
-            
-            self.location.date = date
-            
-            sunrise = self.location.next_rising(ephem.Sun())
-            sunset = self.location.next_setting(ephem.Sun())
-            
-            # Convert ephem dates to Python datetime
-            sunrise_dt = ephem.Date(sunrise).datetime()
-            sunset_dt = ephem.Date(sunset).datetime()
-            
+
+            noon = datetime(date.year, date.month, date.day, 12, 0, 0)
+            self.location.date = noon
+            sun = ephem.Sun()
+
+            try:
+                sunrise_ephem = self.location.previous_rising(sun)
+                sunrise_dt = ephem.Date(sunrise_ephem).datetime()
+            except ephem.AlwaysUpError:
+                return datetime.min, None   # polar day
+            except ephem.NeverUpError:
+                return None, datetime.max   # polar night
+
+            try:
+                sunset_ephem = self.location.next_setting(sun)
+                sunset_dt = ephem.Date(sunset_ephem).datetime()
+            except ephem.AlwaysUpError:
+                return datetime.min, None   # polar day
+            except ephem.NeverUpError:
+                return None, datetime.max   # polar night
+
             return sunrise_dt, sunset_dt
-        
+
         def is_daytime(self, dt: datetime = None) -> bool:
-            """Check if time is daytime."""
+            """Check if it is daytime using solar altitude (most direct method)."""
             if dt is None:
                 dt = datetime.now()
-            
-            sunrise, sunset = self.get_sunrise_sunset(dt)
-            return sunrise <= dt <= sunset
+            self.location.date = dt
+            sun = ephem.Sun(self.location)
+            return float(sun.alt) > 0
 
 except ImportError:
     PyEphemCalculator = None

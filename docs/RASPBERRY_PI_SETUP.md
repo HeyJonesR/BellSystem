@@ -62,7 +62,8 @@ Install dependencies:
 
 ```bash
 sudo apt install -y python3 python3-pip python3-venv python3-dev \
-    alsa-utils git libsdl2-mixer-2.0-0 libsdl2-2.0-0
+    pipewire pipewire-pulse pipewire-alsa alsa-utils \
+    git libsdl2-mixer-2.0-0 libsdl2-2.0-0
 ```
 
 Set the timezone (if not already correct):
@@ -312,7 +313,7 @@ power outage or reboot.
 aplay -l
 
 # 2. Test with a direct file
-sudo -u bells aplay /opt/bells/audio_samples/westminster/bell.wav
+sudo -u bells aplay /opt/bells/config/audio_samples/westminster/bell.wav
 
 # 3. Check the user is in the audio group
 groups bells    # should show "audio"

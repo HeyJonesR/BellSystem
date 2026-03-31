@@ -1,8 +1,10 @@
 [Unit]
 Description=Midway UMC Bells - Automated Church Bell System
 Documentation=https://github.com/HeyJonesR/BellSystem
-After=network.target time-sync.target sound.target
-Wants=network-online.target
+# Ubuntu 24.04 uses PipeWire as the default audio stack.
+# pipewire-pulse provides the PulseAudio compatibility layer.
+After=network.target time-sync.target pipewire.service pipewire-pulse.service
+Wants=network-online.target pipewire.service pipewire-pulse.service
 
 [Service]
 Type=simple
@@ -49,7 +51,11 @@ MemoryMax=256M
 CPUQuota=50%
 
 # Environment
+# SDL_AUDIODRIVER: use PipeWire native backend (Ubuntu 24.04, SDL2 ≥ 2.28).
+# The Python code falls back to pulseaudio/alsa automatically if pipewire is
+# unavailable, but setting it here avoids the probe loop.
 Environment="PYTHONUNBUFFERED=1"
+Environment="SDL_AUDIODRIVER=pipewire"
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=midway-bells
@@ -57,6 +63,9 @@ SyslogIdentifier=midway-bells
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
 
 [Install]
 WantedBy=multi-user.target

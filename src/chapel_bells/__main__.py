@@ -8,6 +8,7 @@ import logging
 import logging.handlers
 import signal
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -49,20 +50,12 @@ def main() -> None:
     setup_logging(args.log_file)
     logger = logging.getLogger(__name__)
 
-    # --- Audio player -------------------------------------------------
-    # audio_dir comes from the config file; create a temporary scheduler
-    # just to peek at the value before full init.
-    import json, yaml as _yaml
-    config_path = Path(args.config)
-    with open(config_path) as f:
-        raw = json.load(f) if config_path.suffix == ".json" else _yaml.safe_load(f)
-    audio_dir = raw.get("audio_dir", "audio_samples")
-    volume = int(raw.get("volume", 80))
-
-    player = AudioPlayer(audio_dir=audio_dir, volume=volume)
-
-    # --- Scheduler ----------------------------------------------------
-    scheduler = BellScheduler(config_path=args.config, play_callback=player.play)
+    # --- Scheduler (reads config; exposes audio_dir + volume) --------
+    # Construct scheduler first so we read config only once.
+    # Use a stub callback until the player is ready.
+    scheduler = BellScheduler(config_path=args.config, play_callback=lambda _s: False)
+    player = AudioPlayer(audio_dir=scheduler.audio_dir, volume=scheduler.volume)
+    scheduler.play_callback = player.play
     scheduler.schedule_all()
 
     logger.info(
@@ -85,19 +78,25 @@ def main() -> None:
         t.start()
         logger.info("Web dashboard: http://127.0.0.1:%d", args.port)
 
-    # --- Signal handling ----------------------------------------------
+    # --- Signal handling (flag-based for clean shutdown) --------------
+    _stop = threading.Event()
+
     def _shutdown(sig, frame):
         logger.info("Received signal %s – shutting down.", sig)
-        player.stop()
-        sys.exit(0)
+        _stop.set()
 
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)
 
     # --- Main loop ----------------------------------------------------
-    while True:
+    while not _stop.is_set():
         scheduler.run_pending()
-        time.sleep(1)
+        _stop.wait(1)
+
+    # --- Cleanup ------------------------------------------------------
+    player.stop()
+    player.close()
+    logger.info("ChapelBells stopped.")
 
 
 if __name__ == "__main__":

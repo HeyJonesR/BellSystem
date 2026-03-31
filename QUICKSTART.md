@@ -4,10 +4,9 @@ Get your church bell system running in 15 minutes!
 
 ## Prerequisites
 
-- Raspberry Pi 4/5 or Ubuntu Server machine
+- Raspberry Pi 4/5 or Ubuntu Server 24.04 machine
 - Python 3.9+
 - Audio output device (speakers/amplifier)
-- Bell audio files (optional - will generate test tones)
 
 ## 5-Minute Setup
 
@@ -26,114 +25,120 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Create Config
+### 2. Configure
 
-```bash
-# Copy example config
-cp config/schedule.yaml ~/.chapel_bells.yaml
+Edit `config/schedule.json` (or `config/schedule.yaml`):
 
-# Edit for your location & times
-nano ~/.chapel_bells.yaml
+```json
+{
+  "audio_dir": "audio_samples",
+  "volume": 80,
+  "quiet_hours": {
+    "enabled": true,
+    "start": "21:00",
+    "end": "07:00"
+  },
+  "bells": [
+    {
+      "time": "09:00",
+      "sound": "carillon-bells/westminster-chimes-full.mp3"
+    },
+    {
+      "time": "12:00",
+      "sound": "carillon-bells/noon-hour-bell-strike.mp3",
+      "count": 1,
+      "interval": 2.0
+    }
+  ]
+}
 ```
 
-Edit these key settings:
-```yaml
-location:
-  latitude: 40.7128    # Your church latitude
-  longitude: -74.0060  # Your church longitude
-  timezone: America/New_York
-
-quiet_hours:
-  start: "21:00"       # Stop ringing at 9 PM
-  end: "07:00"         # Start ringing at 7 AM
-
-events:
-  - name: "Hourly Chimes"
-    rule: "every hour"
-    audio_profile: "westminster"
-    duration_seconds: 15
-```
+Key settings:
+- **`bells`** — list of scheduled events (`time` in HH:MM, `sound` relative to `audio_dir`)
+- **`quiet_hours`** — suppress all bells between `start` and `end`
+- **`volume`** — master volume 0–100
+- **`audio_dir`** — path to audio samples (relative to config directory)
 
 ### 3. Test Audio
 
+The repo ships with 16 audio files in `config/audio_samples/`:
+
 ```bash
-# Generate test bell sound
-sox -n -r 44100 -c 2 -b 16 bell.wav synth 2 sine 440
+# List available sounds
+ls config/audio_samples/carillon-bells/
+ls config/audio_samples/westminster/
 
-# Test playback
-aplay bell.wav
-
-# Create audio directories
-mkdir -p ~/.chapel_bells/audio/westminster
-mv bell.wav ~/.chapel_bells/audio/westminster/bell.wav
+# Test playback directly
+aplay config/audio_samples/westminster/bell.wav
 ```
 
 ### 4. Run Application
 
 ```bash
-# Start in foreground (test mode)
-python3 -m chapel_bells --config ~/.chapel_bells.yaml
+# Start with web UI (test mode)
+python3 run_web_ui.py
 
-# You should see:
-# [INFO] Starting ChapelBells...
-# [INFO] Starting scheduler loop...
+# Or start headless (scheduler only)
+python3 -m chapel_bells --config config/schedule.json
 ```
 
 ### 5. Access Web UI
 
 Open browser: `http://localhost:5000`
 
-- Dashboard shows next scheduled bells
-- Add new events via the web UI
-- Configure quiet hours
-- Test audio playback
+- **View / add / edit / delete** scheduled bells
+- **Pick any sound** from the available audio files
+- **Trigger a sound manually** with the Play button
+- **Stop playback** instantly with the Stop button
+- **Adjust volume** with the slider
+- **Configure quiet hours** (click ✏ Edit on the Quiet Hours badge)
+- **View recent playback** history
 
 ## Common Tasks
 
-### Add a Sunday Service Bell
+### Add a Bell via Web UI
 
-```bash
-# Edit config or use web UI
-# In browser:
-# 1. Click "Add Event"
-# 2. Name: "Sunday Service"
-# 3. Rule: "sunday at 10:00"
-# 4. Profile: "carillon"
-# 5. Click Save
-```
+1. Click **"+ Add Bell"**
+2. Set the time (e.g., 10:00)
+3. Pick a sound from the dropdown
+4. Optionally set count (rings) and interval (seconds between rings)
+5. Click **Save**
 
 ### Change Quiet Hours
 
-Via web UI:
-1. Dashboard → Settings → Quiet Hours
-2. Set start time: 21:00 (9 PM)
-3. Set end time: 07:00 (7 AM)
-4. Save
+1. On the dashboard, click **✏ Edit** next to "Quiet Hours"
+2. Toggle enabled, set start and end times
+3. Click **Save**
 
-### Test Bell Playback
+### Add New Audio Files
 
-Via web UI:
-1. Dashboard → Audio Test
-2. Select profile: "westminster"
-3. Click "Play"
+Drop any `.wav` or `.mp3` file into `config/audio_samples/` (or a subfolder).
+It will appear in the web UI automatically — no restart needed.
 
 ## Install as System Service
 
 ```bash
-# Install as systemd service (Linux only)
-sudo cp systemd/chapel-bells.service /etc/systemd/system/
-sudo cp systemd/chapel-bells-web.service /etc/systemd/system/
+# Create dedicated user
+sudo useradd -r -m -d /opt/bells -s /bin/bash bells
+sudo usermod -aG audio bells
 
-# Reload and start
+# Clone to /opt/bells
+sudo -u bells git clone https://github.com/HeyJonesR/BellSystem.git /opt/bells
+cd /opt/bells
+sudo -u bells python3 -m venv venv
+sudo -u bells venv/bin/pip install -r requirements.txt
+
+# Install systemd service
+sudo cp systemd/chapel-bells-web.service /etc/systemd/system/midway-bells.service
 sudo systemctl daemon-reload
-sudo systemctl enable chapel-bells
-sudo systemctl start chapel-bells
+sudo systemctl enable midway-bells
+sudo systemctl start midway-bells
 
 # Check status
-sudo systemctl status chapel-bells
+sudo systemctl status midway-bells
 
 # View logs
-journalctl -u chapel-bells -f
+journalctl -u midway-bells -f
 ```
 
 ## Troubleshooting
@@ -157,47 +162,22 @@ date
 timedatectl
 
 # Verify config is loaded
-cat ~/.chapel_bells.yaml
+cat config/schedule.json
 
-# Check for quiet hours
-# Look at "Quiet Hours" section in web UI
+# Check for quiet hours in the web UI dashboard
 ```
 
 ### Web UI Not Accessible
 ```bash
 # Check if service is running
-ps aux | grep chapel_bells
+sudo systemctl status midway-bells
 
 # Check port is listening
-netstat -tuln | grep 5000
+ss -tlnp | grep 5000
 
 # Try starting manually
 python3 run_web_ui.py
 ```
-
-## Deploy to Raspberry Pi
-
-### Quick SSH Deploy
-
-```bash
-# On your development machine
-scp -r BellSystem pi@192.168.1.100:/home/pi/
-
-# Connect to Pi
-ssh pi@192.168.1.100
-
-# cd into directory
-cd BellSystem
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Install System Service
-
-```bash
-# Copy systemd service files
-sudo cp systemd/chapel-bells.service /etc/systemd/system/
 sudo cp systemd/chapel-bells-web.service /etc/systemd/system/
 sudo cp systemd/chapel-bells-web.socket /etc/systemd/system/
 
