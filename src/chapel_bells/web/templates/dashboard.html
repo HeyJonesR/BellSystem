@@ -456,6 +456,31 @@
     }
 
     // ---- existing controls ----
+    function refreshHistory() {
+        fetch('/api/history?limit=20')
+            .then(r => r.json())
+            .then(entries => {
+                const container = document.querySelector('.history-list') ||
+                    document.querySelector('[style="color:#aaa;padding:8px 0"]')?.parentElement;
+                if (!container) return;
+                if (entries.length === 0) {
+                    container.innerHTML = '<h2>📋 Recent Playback</h2><p style="color:#aaa;padding:8px 0">No bells played yet.</p>';
+                    return;
+                }
+                let html = '<h2>📋 Recent Playback</h2><ul class="history-list">';
+                entries.forEach(e => {
+                    const label = soundLabel(e.sound);
+                    const count = (e.count && e.count > 1) ? ` ×${e.count}` : '';
+                    html += `<li class="history-item"><span title="${esc(e.sound)}">🔔 ${esc(label)}${count}</span><span class="history-time">${esc(e.time)}</span></li>`;
+                });
+                html += '</ul>';
+                // The history card is the parent of .history-list or the "No bells" paragraph
+                const card = document.querySelector('.history-list')?.closest('.card') || container;
+                card.innerHTML = html;
+            })
+            .catch(e => console.error('History refresh error:', e));
+    }
+
     function triggerBell(sound) {
         fetch('/api/trigger', {
             method: 'POST',
@@ -463,7 +488,10 @@
             body: JSON.stringify({sound})
         })
         .then(r => r.json())
-        .then(d => { if (d.status !== 'ok') alert('Playback failed: ' + JSON.stringify(d)); })
+        .then(d => {
+            if (d.status !== 'ok') alert('Playback failed: ' + JSON.stringify(d));
+            else setTimeout(refreshHistory, 2000);
+        })
         .catch(e => alert('Error: ' + e));
     }
     function triggerSelected() {
