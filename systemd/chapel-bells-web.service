@@ -43,7 +43,7 @@ ReadWritePaths=/opt/bells /var/log/bells
 
 # Environment
 Environment="PYTHONUNBUFFERED=1"
-Environment="SDL_AUDIODRIVER=pipewire"
+Environment="SDL_AUDIODRIVER=alsa"
 
 # Logging
 StandardOutput=journal

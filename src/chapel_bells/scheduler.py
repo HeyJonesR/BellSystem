@@ -163,20 +163,16 @@ class BellScheduler:
             self.history.appendleft(entry)
 
     def trigger_sound(self, sound: str) -> bool:
-        """Manually trigger a sound by filename (used by web UI)."""
+        """Manually trigger a sound by filename (used by web UI).
+
+        Plays in a background thread so the HTTP request returns immediately.
+        """
         if not sound:
             return False
         logger.info("Manual trigger: %s", sound)
-        ok = bool(self.play_callback(sound))
-        if ok:
-            entry = {
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "sound": sound,
-                "count": 1,
-            }
-            with self._history_lock:
-                self.history.appendleft(entry)
-        return ok
+        bell = {"sound": sound, "count": 1, "interval": 2.0, "time": "manual"}
+        self._trigger(bell)
+        return True
 
     # ------------------------------------------------------------------
     # History / status
