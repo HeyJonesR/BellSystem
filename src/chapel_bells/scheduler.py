@@ -167,7 +167,16 @@ class BellScheduler:
         if not sound:
             return False
         logger.info("Manual trigger: %s", sound)
-        return bool(self.play_callback(sound))
+        ok = bool(self.play_callback(sound))
+        if ok:
+            entry = {
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "sound": sound,
+                "count": 1,
+            }
+            with self._history_lock:
+                self.history.appendleft(entry)
+        return ok
 
     # ------------------------------------------------------------------
     # History / status
