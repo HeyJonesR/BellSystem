@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """Run the ChapelBells web UI locally."""
 
+import logging
 import sys
 from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    stream=sys.stderr,
+)
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
