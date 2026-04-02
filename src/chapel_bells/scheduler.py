@@ -104,6 +104,10 @@ class BellScheduler:
     # Scheduling
     # ------------------------------------------------------------------
 
+    # Map weekday numbers (Monday=0) to 3-letter abbreviations
+    _WDAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    ALL_DAYS = _WDAY_ABBR  # ["Mon", ... "Sun"]
+
     def schedule_all(self) -> None:
         """Clear and rebuild the full schedule from config."""
         self._scheduler.clear()
@@ -112,8 +116,15 @@ class BellScheduler:
             if not t:
                 logger.warning("Bell entry missing 'time', skipping: %s", bell)
                 continue
+            # Always use every().day so the job fires today if the time
+            # hasn't passed yet.  Day-of-week filtering happens in
+            # _ring_sequence().
             self._scheduler.every().day.at(t).do(self._trigger, bell=bell)
-            logger.info("Scheduled: %s at %s", bell.get("sound", "?"), t)
+            days = bell.get("days")
+            if days and set(days) < set(self.ALL_DAYS):
+                logger.info("Scheduled: %s at %s (%s)", bell.get("sound", "?"), t, ",".join(days))
+            else:
+                logger.info("Scheduled: %s at %s (every day)", bell.get("sound", "?"), t)
 
     def run_pending(self) -> None:
         """Run any jobs whose time has come.  Call this every second."""
@@ -135,6 +146,11 @@ class BellScheduler:
 
     def _ring_sequence(self, bell: Dict) -> None:
         """Play a multi-ring sequence (runs in a daemon thread)."""
+        # Day-of-week filter (jobs fire every day; we skip wrong days here)
+        days = bell.get("days")
+        if days and self._WDAY_ABBR[datetime.now().weekday()] not in days:
+            return
+
         if self.is_quiet_now():
             logger.info("Bell suppressed (quiet hours): %s", bell.get("sound"))
             return

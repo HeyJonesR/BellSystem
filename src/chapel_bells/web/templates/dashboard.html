@@ -177,6 +177,19 @@
         }
         .close-btn:hover { color: #555; }
 
+        /* ---- day picker ---- */
+        .day-picker { display: flex; gap: 5px; flex-wrap: wrap; }
+        .day-chip { cursor: pointer; }
+        .day-chip input { display: none; }
+        .day-chip span {
+            display: inline-block; padding: 5px 10px; border-radius: 5px;
+            font-size: .82em; font-weight: 600; background: #e9ecef; color: #666;
+            transition: background .15s, color .15s;
+        }
+        .day-chip input:checked + span { background: #667eea; color: #fff; }
+
+        .bell-days { font-size: .75em; color: #999; }
+
         @media (max-width: 700px) {
             .grid, .status-bar { grid-template-columns: 1fr; }
         }
@@ -310,6 +323,18 @@
             <label>Sound file</label>
             <select id="fSound"></select>
         </div>
+        <div class="form-row">
+            <label>Days</label>
+            <div class="day-picker" id="fDays">
+                <label class="day-chip"><input type="checkbox" value="Mon" checked><span>Mon</span></label>
+                <label class="day-chip"><input type="checkbox" value="Tue" checked><span>Tue</span></label>
+                <label class="day-chip"><input type="checkbox" value="Wed" checked><span>Wed</span></label>
+                <label class="day-chip"><input type="checkbox" value="Thu" checked><span>Thu</span></label>
+                <label class="day-chip"><input type="checkbox" value="Fri" checked><span>Fri</span></label>
+                <label class="day-chip"><input type="checkbox" value="Sat" checked><span>Sat</span></label>
+                <label class="day-chip"><input type="checkbox" value="Sun" checked><span>Sun</span></label>
+            </div>
+        </div>
         <div class="form-row form-row-2">
             <div class="form-row" style="margin:0">
                 <label>Count <small style="color:#aaa;font-weight:400">(rings, optional)</small></label>
@@ -346,6 +371,29 @@
     tick();
     setInterval(tick, 1000);
 
+    const ALL_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+    function daysLabel(days) {
+        if (!days || days.length === 0 || days.length === 7) return '';
+        // Weekdays / Weekends shortcuts
+        const wd = ['Mon','Tue','Wed','Thu','Fri'];
+        const we = ['Sat','Sun'];
+        if (days.length === 5 && wd.every(d => days.includes(d))) return 'Weekdays';
+        if (days.length === 2 && we.every(d => days.includes(d))) return 'Weekends';
+        return days.join(', ');
+    }
+
+    function setDayCheckboxes(days) {
+        const boxes = document.querySelectorAll('#fDays input[type=checkbox]');
+        const active = (!days || days.length === 0) ? ALL_DAYS : days;
+        boxes.forEach(cb => { cb.checked = active.includes(cb.value); });
+    }
+
+    function getDayCheckboxes() {
+        const boxes = document.querySelectorAll('#fDays input[type=checkbox]');
+        return Array.from(boxes).filter(cb => cb.checked).map(cb => cb.value);
+    }
+
     function renderBells(bells) {
         _bells = bells;
         const el = document.getElementById('bellList');
@@ -354,17 +402,20 @@
             updateTriggerDropdown();
             return;
         }
-        el.innerHTML = '<ul class="bell-list">' + bells.map((b, i) => `
+        el.innerHTML = '<ul class="bell-list">' + bells.map((b, i) => {
+            const dl = daysLabel(b.days);
+            return `
             <li class="bell-item">
                 <span class="bell-time">${esc(b.time)}</span>
-                <span class="bell-sound" title="${esc(b.sound)}">${esc(soundLabel(b.sound))}</span>
+                <span class="bell-sound" title="${esc(b.sound)}">${esc(soundLabel(b.sound))}${dl ? ' <span class=\"bell-days\">' + esc(dl) + '</span>' : ''}</span>
                 ${b.count && b.count > 1 ? `<span class="bell-count">×${b.count}</span>` : ''}
                 <div class="bell-actions">
                     <button class="btn btn-primary btn-small" onclick="triggerBell('${esc(b.sound)}')">▶</button>
                     <button class="btn btn-ghost btn-small" onclick="openEdit(${i})">✏</button>
                     <button class="btn btn-danger btn-small" onclick="deleteBell(${i})">✕</button>
                 </div>
-            </li>`).join('') + '</ul>';
+            </li>`;
+        }).join('') + '</ul>';
         updateTriggerDropdown();
     }
 
@@ -409,6 +460,7 @@
         document.getElementById('fTime').value = '';
         document.getElementById('fCount').value = '';
         document.getElementById('fInterval').value = '';
+        setDayCheckboxes(null);  // all checked
         loadSounds(() => { populateSoundSelect(''); showMod(); });
     }
     function openEdit(idx) {
@@ -418,6 +470,7 @@
         document.getElementById('fTime').value = b.time;
         document.getElementById('fCount').value = b.count || '';
         document.getElementById('fInterval').value = b.interval || '';
+        setDayCheckboxes(b.days || null);
         // Sounds may not be loaded yet if user goes straight to edit
         loadSounds(() => { populateSoundSelect(b.sound); showMod(); });
     }
@@ -429,9 +482,12 @@
         const sound = document.getElementById('fSound').value;
         const countRaw    = document.getElementById('fCount').value.trim();
         const intervalRaw = document.getElementById('fInterval').value.trim();
+        const days  = getDayCheckboxes();
         if (!time)  { alert('Please set a time.');   return; }
         if (!sound) { alert('Please choose a sound.'); return; }
+        if (days.length === 0) { alert('Please select at least one day.'); return; }
         const body = {time, sound};
+        if (days.length < 7) body.days = days;
         if (countRaw)    body.count    = parseInt(countRaw);
         if (intervalRaw) body.interval = parseFloat(intervalRaw);
         const [method, url] = _editIdx === -1
@@ -563,6 +619,9 @@
     // Re-render once /api/sounds loads: gets friendly labels + all sounds in trigger dropdown.
     renderBells(_bells);
     loadSounds(() => { renderBells(_bells); updateTriggerDropdown(); });
+
+    // Poll history every 15 seconds so scheduled bells appear without a page reload
+    setInterval(refreshHistory, 15000);
 </script>
 </body>
 </html>

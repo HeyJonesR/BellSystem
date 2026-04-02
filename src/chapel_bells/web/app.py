@@ -130,6 +130,13 @@ def create_web_app(scheduler, player) -> Flask:
         if ".." in sound or sound.startswith("/"):
             raise ValueError("invalid sound filename")
         bell = {"time": time_, "sound": sound}
+        if "days" in data:
+            days = data["days"]
+            valid_days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+            if not isinstance(days, list) or not all(d in valid_days for d in days):
+                raise ValueError("days must be a list of Mon/Tue/Wed/Thu/Fri/Sat/Sun")
+            if days and set(days) != valid_days:
+                bell["days"] = days
         if "count" in data:
             try:
                 bell["count"] = max(1, int(data["count"]))

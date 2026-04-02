@@ -11,8 +11,11 @@
       "interval": 2.0
     },
     {
-      "time": "18:00",
-      "sound": "carillon-bells/joyful-joyful.mp3"
+      "time": "11:30",
+      "sound": "carillon-bells/america-the-beautiful.mp3",
+      "days": [
+        "Thu"
+      ]
     }
   ],
   "audio_dir": "audio_samples",

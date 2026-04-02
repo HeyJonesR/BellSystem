@@ -3,6 +3,8 @@
 
 import logging
 import sys
+import threading
+import time
 from pathlib import Path
 
 logging.basicConfig(
@@ -22,6 +24,17 @@ config_path = Path(__file__).parent / "config" / "schedule.json"
 scheduler = BellScheduler(config_path=str(config_path), play_callback=lambda _s: False)
 player = AudioPlayer(audio_dir=scheduler.audio_dir, volume=scheduler.volume)
 scheduler.play_callback = player.play
+scheduler.schedule_all()
+
+
+def _scheduler_loop():
+    """Background thread that fires scheduled bells."""
+    while True:
+        scheduler.run_pending()
+        time.sleep(1)
+
+
+threading.Thread(target=_scheduler_loop, daemon=True, name="scheduler").start()
 
 flask_app = create_web_app(scheduler, player)
 
