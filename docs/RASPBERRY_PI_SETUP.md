@@ -80,30 +80,37 @@ timedatectl status   # verify "NTP service: active"
 ### Option A: USB DAC (easiest)
 
 1. Plug in the USB sound card.
-2. Verify it appears:
+2. Find the card **name** (not number — numbers change across reboots):
 
 ```bash
-aplay -l
+cat /proc/asound/cards
 ```
 
-You should see something like `card 1: Device [USB Audio Device]`.
+Example output:
+```
+ 0 [S3             ]: USB-Audio - Sound Blaster Play! 3
+ 1 [vc4hdmi0       ]: vc4-hdmi - vc4-hdmi-0
+ 2 [vc4hdmi1       ]: vc4-hdmi - vc4-hdmi-1
+```
 
-3. Set it as the default output:
+The name is in brackets — here it's `S3`.
+
+3. Set it as the default output using the **name**:
 
 ```bash
 sudo tee /etc/asound.conf << 'EOF'
 pcm.!default {
-    type hw
-    card 1
+    type plug
+    slave.pcm "dmix:S3,0"
 }
 ctl.!default {
     type hw
-    card 1
+    card S3
 }
 EOF
 ```
 
-> **Replace `card 1`** with the card number from `aplay -l`.
+> **Replace `S3`** with whatever name your card shows in brackets.
 
 ### Option B: I2S DAC HAT
 
@@ -132,7 +139,8 @@ sudo reboot
 aplay -l
 ```
 
-4. Create `/etc/asound.conf` pointing to card 0 (the HAT).
+4. Create `/etc/asound.conf` pointing to the HAT by card name
+   (use `cat /proc/asound/cards` to find the name in brackets).
 
 ### Test Audio
 
@@ -150,10 +158,10 @@ You should hear a 440 Hz tone through your amplifier/speakers.
 ### Create a dedicated user
 
 ```bash
-sudo useradd -r -m -d /opt/bells -s /bin/bash bells
+sudo useradd -r -s /bin/bash bells
 sudo usermod -aG audio bells
-sudo mkdir -p /var/log/bells
-sudo chown bells:bells /var/log/bells
+sudo mkdir -p /opt/bells /var/log/bells
+sudo chown bells:bells /opt/bells /var/log/bells
 ```
 
 ### Clone the repository

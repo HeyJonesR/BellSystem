@@ -1,191 +1,99 @@
-# ChapelBells - Modern Church Bell System Architecture
+# Architecture
 
-## System Overview
+## Overview
 
-ChapelBells is a lightweight, automated church bell system designed for Linux/Raspberry Pi deployment. It provides reliable bell scheduling with DST awareness, quiet hours management, and web-based administration.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│              Linux Machine (Ubuntu/Raspbian)            │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │         ChapelBells Core Application            │   │
-│  │         (Python 3.9+)                           │   │
-│  │                                                  │   │
-│  │  ┌─────────────┐  ┌──────────────┐             │   │
-│  │  │ Scheduler   │  │ Audio Engine │             │   │
-│  │  │ Engine      │  │ (ALSA/Pulse) │             │   │
-│  │  │             │  │              │             │   │
-│  │  │ - DST       │  │ - WAV/FLAC   │             │   │
-│  │  │ - Rules     │  │ - Volume     │             │   │
-│  │  │ - Calendar  │  │ - Profiles   │             │   │
-│  │  └─────────────┘  └──────────────┘             │   │
-│  │         ↓              ↓                        │   │
-│  │  ┌─────────────┐  ┌──────────────┐             │   │
-│  │  │ Astro Calc  │  │ Config Store │             │   │
-│  │  │             │  │ (SQLite/JSON)│             │   │
-│  │  │ - Sunrise   │  │              │             │   │
-│  │  │ - Sunset    │  │ - Schedules  │             │   │
-│  │  │ - GeoLoc    │  │ - Settings   │             │   │
-│  │  └─────────────┘  └──────────────┘             │   │
-│  │         ↓                                       │   │
-│  │  ┌─────────────────────────────────────┐       │   │
-│  │  │ System Time (NTP-synced)            │       │   │
-│  │  │ + DST Auto-adjustment               │       │   │
-│  │  └─────────────────────────────────────┘       │   │
-│  └─────────────────────────────────────────────────┘   │
-│         ↓                      ↓                        │
-│  ┌─────────────────┐  ┌──────────────────┐             │
-│  │ Systemd Service │  │ Flask Web Admin  │             │
-│  │ - Auto-start    │  │ - Dashboard      │             │
-│  │ - Restart logic │  │ - Schedule edit  │             │
-│  │ - Logging       │  │ - Settings       │             │
-│  └─────────────────┘  └──────────────────┘             │
-│                              ↓                         │
-│                       ┌─────────────────┐              │
-│                       │ HTTP:5000       │              │
-│                       │ Local network   │              │
-│                       └─────────────────┘              │
-│                                                        │
-│  ┌──────────────────────────────────────────────┐    │
-│  │ Hardware I/O                                 │    │
-│  │ - Audio Jack → Amplifier → Speakers          │    │
-│  └──────────────────────────────────────────────┘    │
-│                                                        │
-└─────────────────────────────────────────────────────────┘
-
-        ↓                              ↓
-   
-   ┌─────────────────┐    ┌──────────────────┐
-   │ External Amp    │    │ Admin Workstation│
-   │ + Speakers      │    │ or Mobile device │
-   └─────────────────┘    └──────────────────┘
-```
-
-## Component Breakdown
-
-### 1. **Scheduler Engine** (`scheduler.py`)
-- Maintains in-memory schedule rules
-- Evaluates rules at each check interval (1 second minimum)
-- Supports: hourly chimes, call-to-service, special events
-- DST-aware via system time
-- Calendar-based rules (weekday patterns, seasonal overrides)
-
-### 2. **Audio Engine** (`audio.py`)
-- Abstracts audio playback (ALSA/PulseAudio)
-- Loads WAV/FLAC samples
-- Manages volume levels
-- Profiles: traditional carillon, Westminster quarters, custom
-- Graceful degradation if audio device unavailable
-
-### 3. **Astronomical Calculator** (`astro.py`)
-- Calculates sunrise/sunset for given location
-- Powers quiet hours logic
-- Location: configurable (lat/lon or city name)
-- Uses ephem library or equivalent
-
-### 4. **Configuration Store** (`config/`)
-- SQLite database or JSON files
-- Persistent: schedules, settings, event logs
-- Human-editable YAML for initial setup
-- Atomic writes for reliability
-
-### 5. **Web Admin UI** (`web/app.py`)
-- Flask or FastAPI server
-- Dashboard with calendar/rule editor
-- Location & quiet hours settings
-- Audio profile selector
-- Simple authentication (basic auth or local token)
-
-### 6. **Systemd Service**
-- Auto-starts on boot
-- Restart on failure (exponential backoff)
-- Integrated logging (journalctl)
-- Graceful shutdown handling
-
-### 7. **Logging & Events**
-- journalctl integration
-- Local event log (bell playback history)
-- Configurable log rotation
-
-## Data Flow
+Midway UMC Bells is a single-process Python application that runs a Flask
+web server and an in-process scheduler. It plays audio files through
+pygame.mixer (SDL2) via ALSA to a USB sound card.
 
 ```
-System Time (NTP)
-      ↓
-  ┌─────────────────────────────────────┐
-  │ Scheduler Loop (1-second interval)  │
-  │                                     │
-  │ 1. Get current time (DST aware)     │
-  │ 2. Load applicable rules            │
-  │ 3. Check: event scheduled?          │
-  │ 4. Check: within allowed hours?     │
-  │    - Not in quiet hours?            │
-  │    - Daylight/darkness rules?       │
-  │ 5. For each valid event:            │
-  │    - Trigger audio playback         │
-  │    - Log event                      │
-  │ 6. Sleep until next second          │
-  └─────────────────────────────────────┘
-      ↓
-  Audio Playback
-  + Event Logging
+┌──────────────────────────────────────────────┐
+│           Linux (Ubuntu 24.04 / Pi OS)       │
+│                                              │
+│  run_web_ui.py                               │
+│  ┌────────────────────────────────────────┐  │
+│  │                                        │  │
+│  │  BellScheduler        AudioPlayer      │  │
+│  │  (schedule lib)       (pygame.mixer)   │  │
+│  │       │                    │           │  │
+│  │       ▼                    ▼           │  │
+│  │  schedule.json        ALSA / SDL2      │  │
+│  │                            │           │  │
+│  │  Flask (:5000)             │           │  │
+│  │  ├─ dashboard.html         │           │  │
+│  │  └─ /api/*                 │           │  │
+│  └────────────────────────────┼───────────┘  │
+│                               ▼              │
+│                          USB DAC             │
+│                            │                 │
+│  systemd (midway-bells)    ▼                 │
+│                       Amp → Speakers         │
+└──────────────────────────────────────────────┘
+
+        Browser ──HTTP──▶ :5000
 ```
 
-## Key Design Principles
+## Components
 
-1. **Simplicity**: No cloud dependency, minimal external services
-2. **Resilience**: Survives power loss, network outage, clock skew
-3. **Low resource**: Runs efficiently on Pi zero/3/4/5
-4. **Time-aware**: Automatic DST, sunrise/sunset calculations
-5. **Maintainability**: Clear separation of concerns, comprehensive logging
+### Scheduler (`scheduler.py`)
 
-## Configuration Example
+- Reads `config/schedule.json` for bell times, sounds, quiet hours
+- Uses the `schedule` library to fire events at HH:MM times
+- Runs playback in background threads (non-blocking)
+- Keeps recent history in a `deque(maxlen=100)`
+- Saves config changes back to JSON (or YAML if `.yaml` extension)
 
-```yaml
-location:
-  latitude: 40.7128
-  longitude: -74.0060
-  timezone: America/New_York
+### Audio Player (`audio.py`)
 
-quiet_hours:
-  enabled: true
-  start: "21:00"  # 9 PM
-  end: "07:00"    # 7 AM
+- Wraps pygame.mixer for audio playback
+- Driver probe chain: `pipewire → pulseaudio → alsa → coreaudio`
+- Caches loaded `Sound` objects to avoid repeated disk reads
+- 512-sample buffer (~12ms latency at 44.1kHz)
+- Supports WAV and MP3 files
 
-schedules:
-  - name: "Hourly Chimes"
-    rule: "every hour at :00"
-    audio_profile: "westminster"
-    active_hours: "07:00-21:00"
-  
-  - name: "Call to Service"
-    rule: "sunday at 10:00"
-    audio_profile: "traditional_carillon"
+### Web UI (`web/app.py` + `dashboard.html`)
+
+- Flask app with Jinja2 templates
+- REST API for all operations (schedule CRUD, trigger, volume, quiet hours)
+- Sound file discovery — scans `audio_samples/` for `.wav`/`.mp3` files
+- `sound_label` Jinja2 filter for human-readable file names
+
+### Astro Calculator (`astro.py`)
+
+- Sunrise/sunset calculations for a configured location
+- `is_daytime()` helper (not currently used for scheduling, available for future use)
+
+## Configuration Format
+
+Single JSON file (`config/schedule.json`):
+
+```json
+{
+  "audio_dir": "audio_samples",
+  "volume": 80,
+  "quiet_hours": { "enabled": true, "start": "22:00", "end": "07:00" },
+  "bells": [
+    { "time": "09:00", "sound": "carillon-bells/westminster-chimes-full.mp3" },
+    { "time": "12:00", "sound": "carillon-bells/noon-hour-bell-strike.mp3", "count": 1 }
+  ]
+}
 ```
 
-## Technology Stack
+`audio_dir` is resolved relative to the config file's parent directory.
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Python 3.9+ |
-| Scheduler | APScheduler or custom loop |
-| Audio | PyAudio + ALSA/PulseAudio |
-| Web UI | Flask + Bootstrap 5 |
-| Database | SQLite3 |
-| Logging | Python logging + journalctl |
-| Astronomy | PyEphem or manual calculations |
-| Init System | systemd |
-| OS | Ubuntu Server 20.04+ / Raspbian Bullseye+ |
+## Deployment
 
-## Deployment Target
+- **systemd** manages the process (`midway-bells.service`)
+- Runs as dedicated `bells` user (home: `/opt/bells`)
+- `SDL_AUDIODRIVER=alsa` set in the service file
+- `SupplementaryGroups=audio` for device access
+- Security hardening: `NoNewPrivileges`, `ProtectSystem=strict`, `MemoryMax=128M`
 
-- **Raspberry Pi 5** (4GB RAM, 64-bit)
-- **Raspberry Pi 4** (2GB+ RAM)
-- **Ubuntu Server 22.04 LTS** (generic x86/ARM)
-- **Estimated resource usage**:
-  - CPU: <2% average
-  - Memory: ~40-50 MB
-  - Storage: ~100 MB (+ audio samples)
-  - Uptime target: 99.9%
+## Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| Flask | Web server and API |
+| schedule | Time-based job scheduling |
+| pygame | Audio playback (SDL2_mixer) |
+| PyYAML | YAML config support |
